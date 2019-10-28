@@ -1,0 +1,13 @@
+[package]
+name = "generator-derive"
+version = "0.1.0"
+authors = ["Martin Pinholt <mapi@itu.dk>"]
+edition = "2018"
+
+[dependencies]
+syn = {version="1.0.5", features=["extra-traits", "visit", "full"]}
+quote = "1.0.2"
+proc-macro-error = "0.3.1"
+
+[lib]
+proc-macro = true

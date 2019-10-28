@@ -1,0 +1,6 @@
+[workspace]
+members = [
+    "generator-derive",
+    "generator",
+    "ffi-template"
+]
