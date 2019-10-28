@@ -1,0 +1,8 @@
+[package]
+name = "lib_test"
+version = "0.1.0"
+authors = ["mart368b <martinpinholt@hotmail.com>"]
+edition = "2018"
+
+[dependencies]
+test_lib = {path = "../test_lib"}

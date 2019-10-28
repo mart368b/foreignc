@@ -1,5 +1,5 @@
 [package]
-name = "generator"
+name = "foreignc"
 version = "0.1.0"
 authors = ["Martin Pinholt <mapi@itu.dk>"]
 edition = "2018"
@@ -7,6 +7,6 @@ edition = "2018"
 
 [dependencies]
 libc = "0.2.65"
-generator-derive = {path = "../generator-derive"}
+foreignc_derive = {path = "../foreignc_derive"}
 
 [lib]

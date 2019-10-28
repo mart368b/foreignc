@@ -1,5 +1,5 @@
 [package]
-name = "generator-derive"
+name = "foreignc_derive"
 version = "0.1.0"
 authors = ["Martin Pinholt <mapi@itu.dk>"]
 edition = "2018"

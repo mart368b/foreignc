@@ -1,6 +1,8 @@
 [workspace]
 members = [
-    "generator-derive",
-    "generator",
-    "ffi-template"
+    "foreignc_derive",
+    "foreignc",
+    "ffi-template",
+    "test_suite/test_lib",
+    "test_suite/lib_test"
 ]

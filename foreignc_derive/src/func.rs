@@ -25,6 +25,5 @@ pub enum Arg {
     Result(Box<Arg>),
     Pimitive(String),
     String,
-    JSON(String),
-    None
+    JSON(String)
 }

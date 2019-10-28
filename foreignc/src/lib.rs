@@ -1,9 +1,10 @@
-pub use std::ffi::CString;
 use std::ffi::CStr;
 use std::os::raw::c_char;
 use std::cell::RefCell;
-pub use generator_derive::*;
 use std::error::Error;
+
+pub use std::ffi::CString;
+pub use foreignc_derive::*;
 
 thread_local!{
     static LAST_ERROR: RefCell<Option<Box<dyn Error>>> = RefCell::new(None);

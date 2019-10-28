@@ -19,9 +19,6 @@ use syn::*;
 use syn::spanned::Spanned;
 use core::convert::From;
 
-static mut HAS_FREE_STRING: bool = false;
-static mut HAS_TAKE_ERROR: bool = false;
-
 #[proc_macro_attribute]
 pub fn inspect(_attr: TokenStream1, item: TokenStream1) -> TokenStream1 {
     let it: ItemFn = parse(item).unwrap();
@@ -30,28 +27,15 @@ pub fn inspect(_attr: TokenStream1, item: TokenStream1) -> TokenStream1 {
 }
 
 #[proc_macro_attribute]
-pub fn implement_extern(_attr: TokenStream1, input: TokenStream1) -> TokenStream1 {
+pub fn wrap_extern(_attr: TokenStream1, input: TokenStream1) -> TokenStream1 {
     let items: Items = parse(input).unwrap();
     
-    let mut ffi_impl = if let Some(item) = items.items {
+    let ffi_impl = if let Some(item) = items.items {
         convert_items(item)
     }else if let Some(impls) = items.impls {
         convert_impls(impls)
     }else {
         abort!("Can only implement extern on impl of fn block")
-    };
-
-    unsafe{
-        if !HAS_FREE_STRING {
-            ffi_impl.extend::<TokenStream1>("#[no_mangle]".parse::<TokenStream1>().unwrap());
-            ffi_impl.extend::<TokenStream1>(generate_free_string().into());
-            HAS_FREE_STRING = true;
-        }
-        if !HAS_TAKE_ERROR {
-            ffi_impl.extend::<TokenStream1>("#[no_mangle]".parse::<TokenStream1>().unwrap());
-            ffi_impl.extend::<TokenStream1>(generate_take_error().into());
-            HAS_TAKE_ERROR = true;
-        }
     };
 
     ffi_impl
@@ -64,8 +48,6 @@ fn convert_impls(impls: ItemImpl ) -> TokenStream1 {
     if let Type::Path(ref p) = &*impls.self_ty {
         implement.self_ty = p.path.segments[0].ident.to_string();
     }
-
-    implementation.extend::<TokenStream1>(impls.clone().into_token_stream().into());
 
     for item in impls.items {
         if let ImplItem::Method(item_fn) = item {
@@ -83,8 +65,6 @@ fn convert_impls(impls: ItemImpl ) -> TokenStream1 {
 
 fn convert_items(item: ItemFn ) -> TokenStream1 {
     let mut implementation = TokenStream1::new();
-
-    implementation.extend::<TokenStream1>(item.clone().into_token_stream().into());
 
     let (extern_item_fn, f) = to_extern_item_fn(item, &Vec::new(), None);
     let extern_stream: TokenStream2 = extern_item_fn.into_token_stream();
@@ -104,40 +84,52 @@ pub fn derive_json(input: TokenStream1) -> TokenStream1 {
     };
 
     quote!(
-        unsafe impl generator::FromFFi<*const std::os::raw::c_char> for #name{
+        unsafe impl foreignc::FromFFi<*const std::os::raw::c_char> for #name{
             fn from_ffi(p: *const std::os::raw::c_char) -> Self {
-                let s = generator::FromFFi::from_ffi(p);
+                let s = foreignc::FromFFi::from_ffi(p);
                 serde_json::from_str(s).unwrap()
             }
         }
 
-        unsafe impl generator::IntoFFi<*mut std::os::raw::c_char> for #name {
+        unsafe impl foreignc::IntoFFi<*mut std::os::raw::c_char> for #name {
             fn into_ffi(v: Self) -> *mut std::os::raw::c_char { 
                 let s = serde_json::to_string(&v).unwrap();
-                generator::IntoFFi::into_ffi(s)
+                foreignc::IntoFFi::into_ffi(s)
             }
         }
     ).into()
 }
 
-fn generate_free_string() -> TokenStream2 {
-    quote!(
+#[proc_macro]
+pub fn generate_free_string(_item: TokenStream1) -> TokenStream1 {
+    let mut output = TokenStream1::new();
+
+    output.extend::<TokenStream1>("#[no_mangle]".parse::<TokenStream1>().unwrap());
+    output.extend::<TokenStream1>(quote! (
         pub extern "C" fn free_string(ptr: *mut std::os::raw::c_char) {
-            let _ = unsafe{ generator::CString::from_raw(ptr) };
+            let _ = unsafe{ foreignc::CString::from_raw(ptr) };
         }
-    )
+    ).into());
+
+    output
 }
 
-fn generate_take_error() -> TokenStream2 {
-    quote!(
+#[proc_macro]
+pub fn generate_last_error(_item: TokenStream1) -> TokenStream1 {
+    let mut output = TokenStream1::new();
+
+    output.extend::<TokenStream1>("#[no_mangle]".parse::<TokenStream1>().unwrap());
+    output.extend::<TokenStream1>(quote! (
         pub extern "C" fn last_error() -> *mut std::os::raw::c_char {
-            if let Some(e) = generator::take_last_error() {
-                generator::IntoFFi::into_ffi(format!("{}", e))
+            if let Some(e) = foreignc::take_last_error() {
+                foreignc::IntoFFi::into_ffi(format!("{}", e))
             }else {
-                generator::IntoFFi::into_ffi("")
+                foreignc::IntoFFi::into_ffi("")
             }
         }
-    )
+    ).into());
+
+    output
 }
 
 fn to_snake_case(s: String) -> String {
@@ -168,17 +160,17 @@ pub fn derive_boxed(input: TokenStream1) -> TokenStream1 {
     };
 
     let mut t: TokenStream1 = quote!(
-        unsafe impl<T> generator::IntoFFi<*mut T> for #name {
+        unsafe impl<T> foreignc::IntoFFi<*mut T> for #name {
             fn into_ffi(v: Self) -> *mut T { 
                 unsafe { std::mem::transmute(Box::new(v)) }
             }
         }
-        unsafe impl<T> generator::FromFFi<*mut T> for &mut #name {
+        unsafe impl<T> foreignc::FromFFi<*mut T> for &mut #name {
             fn from_ffi(ptr: *mut T) -> Self { 
                 unsafe { &mut *(ptr as *mut #name) }
             }
         }
-        unsafe impl<T> generator::FromFFi<*mut T> for &#name {
+        unsafe impl<T> foreignc::FromFFi<*mut T> for &#name {
             fn from_ffi(ptr: *mut T) -> Self { 
                 unsafe { &*(ptr as *mut #name) } 
             }

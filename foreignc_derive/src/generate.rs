@@ -11,6 +11,11 @@ use syn::punctuated::Punctuated;
 use core::convert::From;
 
 pub fn to_extern_item_fn(mut item: ItemFn, casts: &Vec<TypeCast>, implm: Option<&Type>) -> (ItemFn, Function) {
+    let mut itemc = item.clone();
+    let identc = Ident::new(&format!("{}_ffi", itemc.sig.ident), item.sig.ident.span());
+    itemc.sig.ident = identc.clone();
+
+
     let mut args: Vec<&Pat> = Vec::new();
     let item_name = &item.sig.ident;
     let mut f = Function::default();
@@ -48,17 +53,6 @@ pub fn to_extern_item_fn(mut item: ItemFn, casts: &Vec<TypeCast>, implm: Option<
             ptr.const_token = None;
         }
     };
-    
-    let func_name = item.sig.ident.to_string() + &if let Some(i) = &implm {
-        if let Type::Path(path) = i {
-            format!("_{}_ffi", path.path.segments[0].ident.to_string())
-        }else {
-            abort!("Failed")
-        }
-    }else {
-        "_ffi".to_owned()
-    };
-    f.extern_name = format!("{}", func_name);
 
     let new_item = ItemFn {
         block: Box::new(
@@ -66,10 +60,13 @@ pub fn to_extern_item_fn(mut item: ItemFn, casts: &Vec<TypeCast>, implm: Option<
                 if let Some(caller) = implm {
                     quote!(
                         {
+                            impl #caller {
+                                #itemc
+                            }
                             unsafe {
-                                generator::IntoFFi::into_ffi(
-                                    #caller::#item_name(#(
-                                        generator::FromFFi::from_ffi(#args)
+                                foreignc::IntoFFi::into_ffi(
+                                    #caller::#identc(#(
+                                        foreignc::FromFFi::from_ffi(#args)
                                     ),*)
                                 )
                             }
@@ -78,10 +75,11 @@ pub fn to_extern_item_fn(mut item: ItemFn, casts: &Vec<TypeCast>, implm: Option<
                 }else {
                     quote!(
                         {
+                            #itemc
                             unsafe {
-                                generator::IntoFFi::into_ffi(
-                                    #item_name(#(
-                                        generator::FromFFi::from_ffi(#args)
+                                foreignc::IntoFFi::into_ffi(
+                                    #identc(#(
+                                        foreignc::FromFFi::from_ffi(#args)
                                     ),*)
                                 )
                             }
@@ -99,8 +97,7 @@ pub fn to_extern_item_fn(mut item: ItemFn, casts: &Vec<TypeCast>, implm: Option<
                 extern_token: Token![extern](item.sig.span()),
                 name: Some(LitStr::new("C", item.sig.span()))
             }),
-            ident: Ident::new(&func_name, item.sig.ident.span()),
-            .. item.sig.clone()
+            .. item.sig
         },
     };
     (new_item, f)
