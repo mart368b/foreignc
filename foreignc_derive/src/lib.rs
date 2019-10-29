@@ -3,9 +3,7 @@ extern crate proc_macro;
 mod func;
 mod arguments;
 mod generate;
-mod generics;
 
-use generics::*;
 use generate::*;
 use arguments::*;
 
@@ -15,6 +13,8 @@ use proc_macro::TokenStream as TokenStream1;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::*;
 use syn::*;
+use syn::parse::Parser;
+use syn::punctuated::Punctuated;
 
 use syn::spanned::Spanned;
 use core::convert::From;
@@ -27,13 +27,20 @@ pub fn inspect(_attr: TokenStream1, item: TokenStream1) -> TokenStream1 {
 }
 
 #[proc_macro_attribute]
-pub fn wrap_extern(_attr: TokenStream1, input: TokenStream1) -> TokenStream1 {
+pub fn wrap_extern(attr: TokenStream1, input: TokenStream1) -> TokenStream1 {
+    let parser = Punctuated::<TypeCast, Token![,]>::parse_terminated;
+    let casts: Vec<TypeCast> = parser.parse(attr)
+    .unwrap()
+    .into_iter()
+    .collect();
     let items: Items = parse(input).unwrap();
     
     let ffi_impl = if let Some(item) = items.items {
-        convert_items(item)
+        convert_items(item, casts)
     }else if let Some(impls) = items.impls {
-        convert_impls(impls)
+        let mut cimpls: TokenStream1 = impls.clone().into_token_stream().into();
+        cimpls.extend::<TokenStream1>( convert_impls(impls, casts));
+        cimpls
     }else {
         abort!("Can only implement extern on impl of fn block")
     };
@@ -41,7 +48,7 @@ pub fn wrap_extern(_attr: TokenStream1, input: TokenStream1) -> TokenStream1 {
     ffi_impl
 }
 
-fn convert_impls(impls: ItemImpl ) -> TokenStream1 {
+fn convert_impls(impls: ItemImpl, casts: Vec<TypeCast> ) -> TokenStream1 {
     let mut implementation = TokenStream1::new();
 
     let mut implement = Implement::default();
@@ -51,8 +58,9 @@ fn convert_impls(impls: ItemImpl ) -> TokenStream1 {
 
     for item in impls.items {
         if let ImplItem::Method(item_fn) = item {
+            let method_name = item_fn.sig.ident.clone();
             let item = convert_item_fn(&impls.self_ty, item_fn);
-            let (extern_item_fn, f) = to_extern_item_fn(item, &Vec::new(), Some(&*impls.self_ty));
+            let (extern_item_fn, f) = to_extern_item_fn(item, &casts, Some((&*impls.self_ty, method_name)));
             let extern_stream: TokenStream2 = extern_item_fn.into_token_stream();
             implementation.extend::<TokenStream1>("#[no_mangle]".parse::<TokenStream1>().unwrap());
             implementation.extend::<TokenStream1>(extern_stream.into());
@@ -63,10 +71,10 @@ fn convert_impls(impls: ItemImpl ) -> TokenStream1 {
     implementation
 }
 
-fn convert_items(item: ItemFn ) -> TokenStream1 {
+fn convert_items(item: ItemFn, casts: Vec<TypeCast> ) -> TokenStream1 {
     let mut implementation = TokenStream1::new();
 
-    let (extern_item_fn, f) = to_extern_item_fn(item, &Vec::new(), None);
+    let (extern_item_fn, f) = to_extern_item_fn(item, &casts, None);
     let extern_stream: TokenStream2 = extern_item_fn.into_token_stream();
     implementation.extend::<TokenStream1>("#[no_mangle]".parse::<TokenStream1>().unwrap());
     implementation.extend::<TokenStream1>(extern_stream.into());
@@ -137,7 +145,7 @@ fn to_snake_case(s: String) -> String {
     let mut require_space = false;
     for c in s.chars() {
         if c.is_uppercase() && require_space {
-            ss.push(' ');
+            ss.push('_');
         }
         if c.is_lowercase() {
             require_space = true;
@@ -150,7 +158,7 @@ fn to_snake_case(s: String) -> String {
     ss
 }
 
-#[proc_macro_derive(BOXED)]
+#[proc_macro_derive(Boxed)]
 pub fn derive_boxed(input: TokenStream1) -> TokenStream1 {
     let item: Item = parse(input).unwrap();
     let name = match &item {

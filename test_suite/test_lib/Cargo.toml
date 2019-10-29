@@ -8,5 +8,8 @@ edition = "2018"
 foreignc = {path = "../../foreignc"}
 foreignc_derive = {path = "../../foreignc_derive"}
 
+serde = { version = "1.0.102", features = ["derive"] }
+serde_json = "1.0.41"
+
 [lib]
-crate_type = ["staticlib", "cdylib"]
+crate_type = ["staticlib", "cdylib", "rlib"]

@@ -18,7 +18,7 @@ impl Parse for TypeCast {
         let ty1: Ident = input.parse()?;
 
         let (ty, tty) = match ty1.to_string().as_str() {
-            "JSON" => Ok((parse_str("*const std::os::raw::c_char")?, Types::JSON)),
+            "Json" => Ok((parse_str("*const std::os::raw::c_char")?, Types::JSON)),
             _ =>  Err(input.error("Unexpected FFI type type"))
         }?;
 

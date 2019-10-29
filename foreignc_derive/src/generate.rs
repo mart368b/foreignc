@@ -1,6 +1,7 @@
 
 use super::arguments::*;
 use super::func::*;
+use super::to_snake_case;
 
 use proc_macro_error::*;
 use quote::*;
@@ -10,7 +11,7 @@ use std::iter::{Extend, FromIterator};
 use syn::punctuated::Punctuated;
 use core::convert::From;
 
-pub fn to_extern_item_fn(mut item: ItemFn, casts: &Vec<TypeCast>, implm: Option<&Type>) -> (ItemFn, Function) {
+pub fn to_extern_item_fn(mut item: ItemFn, casts: &Vec<TypeCast>, implm: Option<(&Type, Ident)>) -> (ItemFn, Function) {
     let mut itemc = item.clone();
     let identc = Ident::new(&format!("{}_ffi", itemc.sig.ident), item.sig.ident.span());
     itemc.sig.ident = identc.clone();
@@ -57,15 +58,12 @@ pub fn to_extern_item_fn(mut item: ItemFn, casts: &Vec<TypeCast>, implm: Option<
     let new_item = ItemFn {
         block: Box::new(
             parse(
-                if let Some(caller) = implm {
+                if let Some((caller, method_name)) = implm {
                     quote!(
                         {
-                            impl #caller {
-                                #itemc
-                            }
                             unsafe {
                                 foreignc::IntoFFi::into_ffi(
-                                    #caller::#identc(#(
+                                    #caller::#method_name(#(
                                         foreignc::FromFFi::from_ffi(#args)
                                     ),*)
                                 )
@@ -140,6 +138,20 @@ pub fn convert_item_fn(self_ty: &Box<Type>, item_fn: ImplItemMethod) -> ItemFn {
         attrs: item_fn.attrs,
         sig: Signature {
             inputs: Punctuated::from_iter(inputs.into_iter()),
+            ident: Ident::new(
+                &to_snake_case(
+                    format!(
+                        "{}{}", 
+                        &item_fn.sig.ident, 
+                        if let Type::Path(ref p) = &*self_ty.clone() {
+                            p.path.segments[0].ident.to_string()
+                        }else {
+                            abort!("Failed to get self type name")
+                        }
+                    )
+                ),
+                item_fn.sig.ident.span()
+            ),
             ..item_fn.sig
         },
         block: Box::new(item_fn.block)
