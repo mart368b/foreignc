@@ -5,4 +5,4 @@ authors = ["mart368b <martinpinholt@hotmail.com>"]
 edition = "2018"
 
 [dependencies]
-test_lib = {path = "../test_lib"}
+derive_lib = {path = "../derive_lib"}

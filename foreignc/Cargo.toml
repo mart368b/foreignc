@@ -7,6 +7,10 @@ edition = "2018"
 
 [dependencies]
 libc = "0.2.65"
-foreignc_derive = {path = "../foreignc_derive"}
+foreignc_derive = {path = "../foreignc_derive", optional = true}
+ffi_template = {path = "../ffi-template", optional = true}
 
-[lib]
+[features]
+default = []
+derive = ["foreignc_derive"]
+template = ["derive", "foreignc_derive/template"]

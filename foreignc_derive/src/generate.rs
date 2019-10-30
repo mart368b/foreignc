@@ -1,6 +1,5 @@
 
 use super::arguments::*;
-use super::func::*;
 use super::to_snake_case;
 
 use proc_macro_error::*;
@@ -11,16 +10,12 @@ use std::iter::{Extend, FromIterator};
 use syn::punctuated::Punctuated;
 use core::convert::From;
 
-pub fn to_extern_item_fn(mut item: ItemFn, casts: &Vec<TypeCast>, implm: Option<(&Type, Ident)>) -> (ItemFn, Function) {
+pub fn to_extern_item_fn(mut item: ItemFn, casts: &Vec<TypeCast>, implm: Option<(&Type, Ident)>) -> ItemFn {
     let mut itemc = item.clone();
     let identc = Ident::new(&format!("{}_ffi", itemc.sig.ident), item.sig.ident.span());
     itemc.sig.ident = identc.clone();
 
-
     let mut args: Vec<&Pat> = Vec::new();
-    let item_name = &item.sig.ident;
-    let mut f = Function::default();
-    f.name = item_name.to_string();
 
     for ty in &mut item.sig.inputs {
         match ty {
@@ -36,26 +31,22 @@ pub fn to_extern_item_fn(mut item: ItemFn, casts: &Vec<TypeCast>, implm: Option<
                     p.mutability = None;
                 }
                 args.push(&*t.pat);
-                let (ty, tty) = convert_to_ptr(&t.ty, &casts);
+                let ty = convert_to_ptr(&t.ty, &casts);
                 t.ty = ty;
-                if let Pat::Ident(ref ident) = &*t.pat {
-                    f.inputs.push((ident.ident.to_string(), tty));
-                }
             }
         }
     };
 
     if let ReturnType::Type(_, ref mut ty) = item.sig.output {
-        let (nty, tty) = convert_to_ptr(ty, casts);
+        let nty = convert_to_ptr(ty, casts);
         *ty = nty;
-        f.output = Some(tty);
         if let Type::Ptr(ref mut ptr) = &mut **ty {
             ptr.mutability = Some(Token![mut](ptr.span()));
             ptr.const_token = None;
         }
     };
 
-    let new_item = ItemFn {
+    ItemFn {
         block: Box::new(
             parse(
                 if let Some((caller, method_name)) = implm {
@@ -97,8 +88,7 @@ pub fn to_extern_item_fn(mut item: ItemFn, casts: &Vec<TypeCast>, implm: Option<
             }),
             .. item.sig
         },
-    };
-    (new_item, f)
+    }
 }
 
 pub fn convert_item_fn(self_ty: &Box<Type>, item_fn: ImplItemMethod) -> ItemFn {
@@ -158,7 +148,7 @@ pub fn convert_item_fn(self_ty: &Box<Type>, item_fn: ImplItemMethod) -> ItemFn {
     }
 }
 
-pub fn convert_to_ptr(ty: &Box<Type>, casts: &Vec<TypeCast>) -> (Box<Type>, Arg) {
+pub fn convert_to_ptr(ty: &Box<Type>, casts: &Vec<TypeCast>) -> Box<Type> {
     match &**ty {
         Type::Reference(ref r) => {
             convert_to_ptr(&r.elem, casts)
@@ -170,8 +160,7 @@ pub fn convert_to_ptr(ty: &Box<Type>, casts: &Vec<TypeCast>) -> (Box<Type>, Arg)
                 if let PathArguments::AngleBracketed(ref inner) = seg0.arguments {
                     if let GenericArgument::Type(ref inner_ty) = inner.args[0] {
                         let t = Box::new(inner_ty.clone());
-                        let (ty, a) = convert_to_ptr(&t, casts);
-                        (ty, if path_name == "Result" {Arg::Result(Box::new(a))} else {Arg::Option(Box::new(a))})
+                        convert_to_ptr(&t, casts)
                     }else {
                         abort!("Result or option should not have lifetime")
                     }
@@ -181,39 +170,34 @@ pub fn convert_to_ptr(ty: &Box<Type>, casts: &Vec<TypeCast>) -> (Box<Type>, Arg)
             }else {
                 if let Some(ref cast) = casts.iter().find(|c| c.ty0.to_string() == path_name) {
                     match cast.ty {
-                        Types::JSON => (cast.ty1.clone(), Arg::JSON(cast.ty0.to_string())),
+                        Types::JSON => cast.ty1.clone(),
                     }
                 }else {
                     if path_name.ends_with("String") | path_name.ends_with("str") {
-                        (Box::new(parse_str("*const std::os::raw::c_char").unwrap()), Arg::String)
+                        Box::new(parse_str("*const std::os::raw::c_char").unwrap())
                     }else {
                         match path_name.as_str() {
                             "i8" | "i16" | "i32" | "i64" | "i128" | "isize" 
                             | "u8" | "u16" | "u32" | "u64" | "u128" | "usize" 
                             | "f32" | "f64"
-                            | "bool" | "char" => (ty.clone(), Arg::Pimitive(path_name.as_str().to_owned())),
-                            _ => (
-                                Box::new(TypePtr {
-                                    star_token: Token![*](ty.span()),
-                                    const_token: None,
-                                    mutability: Some(Token![mut](ty.span())),
-                                    elem: Box::new(parse_str("std::ffi::c_void").unwrap())
-                                }.into()), 
-                                Arg::Ptr(path_name.as_str().to_owned())
-                            )
+                            | "bool" | "char" => ty.clone(),
+                            _ => Box::new(TypePtr {
+                                star_token: Token![*](ty.span()),
+                                const_token: None,
+                                mutability: Some(Token![mut](ty.span())),
+                                elem: Box::new(parse_str("std::ffi::c_void").unwrap())
+                            }.into())
                         }
                     }
                 }
             }
         }
-        Type::Ptr(_) => (ty.clone(), Arg::Ptr("Raw".to_owned())),
-        _ => {
-            (Box::new(TypePtr {
-                star_token: Token![*](ty.span()),
-                const_token: None,
-                mutability: Some(Token![mut](ty.span())),
-                elem: ty.clone()
-            }.into()), Arg::Ptr("Unknown".to_owned()))
-        }
+        Type::Ptr(_) => ty.clone(),
+        _ => Box::new(TypePtr {
+            star_token: Token![*](ty.span()),
+            const_token: None,
+            mutability: Some(Token![mut](ty.span())),
+            elem: ty.clone()
+        }.into())
     }
 }

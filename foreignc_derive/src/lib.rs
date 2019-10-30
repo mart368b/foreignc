@@ -1,13 +1,18 @@
 extern crate proc_macro;
 
-mod func;
+#[cfg(feature = "template")]
+mod template;
+#[cfg(feature = "template")]
+use template::*;
+#[cfg(feature = "template")]
+use ffi_template::derived_input::{add_func, add_impl};
+
 mod arguments;
 mod generate;
 
 use generate::*;
 use arguments::*;
 
-use func::*;
 use proc_macro_error::*;
 use proc_macro::TokenStream as TokenStream1;
 use proc_macro2::TokenStream as TokenStream2;
@@ -51,21 +56,36 @@ pub fn wrap_extern(attr: TokenStream1, input: TokenStream1) -> TokenStream1 {
 fn convert_impls(impls: ItemImpl, casts: Vec<TypeCast> ) -> TokenStream1 {
     let mut implementation = TokenStream1::new();
 
-    let mut implement = Implement::default();
-    if let Type::Path(ref p) = &*impls.self_ty {
-        implement.self_ty = p.path.segments[0].ident.to_string();
-    }
-
+    #[cfg(feature = "template")]
+    let mut implement = {
+        let mut implement = ImplementBlock::default();
+        if let Type::Path(ref p) = &*impls.self_ty {
+            implement.self_ty = p.path.segments[0].ident.to_string();
+        }
+        implement
+    };
+    
     for item in impls.items {
         if let ImplItem::Method(item_fn) = item {
             let method_name = item_fn.sig.ident.clone();
             let item = convert_item_fn(&impls.self_ty, item_fn);
-            let (extern_item_fn, f) = to_extern_item_fn(item, &casts, Some((&*impls.self_ty, method_name)));
+
+            #[cfg(feature = "template")]
+            {
+                let f = to_rust_func(&item, &casts, Some((&*impls.self_ty, &method_name)));
+                implement.methods.push(f);
+            }
+
+            let extern_item_fn = to_extern_item_fn(item, &casts, Some((&*impls.self_ty, method_name)));
             let extern_stream: TokenStream2 = extern_item_fn.into_token_stream();
             implementation.extend::<TokenStream1>("#[no_mangle]".parse::<TokenStream1>().unwrap());
             implementation.extend::<TokenStream1>(extern_stream.into());
-            implement.methods.push(f);
         }
+    }
+
+    #[cfg(feature = "template")]
+    {
+        add_impl(implement);
     }
 
     implementation
@@ -74,10 +94,17 @@ fn convert_impls(impls: ItemImpl, casts: Vec<TypeCast> ) -> TokenStream1 {
 fn convert_items(item: ItemFn, casts: Vec<TypeCast> ) -> TokenStream1 {
     let mut implementation = TokenStream1::new();
 
-    let (extern_item_fn, f) = to_extern_item_fn(item, &casts, None);
+    #[cfg(feature = "template")]
+    {
+        let func = to_rust_func(&item, &casts, None);
+        add_func(func);
+    }
+
+    let extern_item_fn = to_extern_item_fn(item, &casts, None);
     let extern_stream: TokenStream2 = extern_item_fn.into_token_stream();
     implementation.extend::<TokenStream1>("#[no_mangle]".parse::<TokenStream1>().unwrap());
     implementation.extend::<TokenStream1>(extern_stream.into());
+
 
     implementation
 }
@@ -99,12 +126,20 @@ pub fn derive_json(input: TokenStream1) -> TokenStream1 {
             }
         }
 
+        unsafe impl foreignc::IntoFFi<*mut std::os::raw::c_char> for &#name {
+            fn into_ffi(v: Self) -> *mut std::os::raw::c_char { 
+                let s = serde_json::to_string(v).unwrap();
+                foreignc::IntoFFi::into_ffi(s)
+            }
+        }
+
         unsafe impl foreignc::IntoFFi<*mut std::os::raw::c_char> for #name {
             fn into_ffi(v: Self) -> *mut std::os::raw::c_char { 
                 let s = serde_json::to_string(&v).unwrap();
                 foreignc::IntoFFi::into_ffi(s)
             }
         }
+        
     ).into()
 }
 
@@ -168,27 +203,36 @@ pub fn derive_boxed(input: TokenStream1) -> TokenStream1 {
     };
 
     let mut t: TokenStream1 = quote!(
-        unsafe impl<T> foreignc::IntoFFi<*mut T> for #name {
-            fn into_ffi(v: Self) -> *mut T { 
-                unsafe { std::mem::transmute(Box::new(v)) }
+        unsafe impl foreignc::IntoFFi<*mut std::ffi::c_void> for #name {
+            fn into_ffi(v: Self) -> *mut std::ffi::c_void { 
+                unsafe { Box::into_raw(Box::new(v)) as *mut std::ffi::c_void }
             }
         }
-        unsafe impl<T> foreignc::FromFFi<*mut T> for &mut #name {
-            fn from_ffi(ptr: *mut T) -> Self { 
+        unsafe impl foreignc::FromFFi<*mut std::ffi::c_void> for &mut #name {
+            fn from_ffi(ptr: *mut std::ffi::c_void) -> Self { 
                 unsafe { &mut *(ptr as *mut #name) }
             }
         }
-        unsafe impl<T> foreignc::FromFFi<*mut T> for &#name {
-            fn from_ffi(ptr: *mut T) -> Self { 
+        unsafe impl foreignc::FromFFi<*mut std::ffi::c_void> for &#name {
+            fn from_ffi(ptr: *mut std::ffi::c_void) -> Self { 
                 unsafe { &*(ptr as *mut #name) } 
             }
         }
+        /*
+        Unsafe as it frees the memeory silently
+        unsafe impl foreignc::FromFFi<*mut std::ffi::c_void> for #name {
+            fn from_ffi(ptr: *mut std::ffi::c_void) -> Self { 
+                let b: Box<#name> = unsafe{ Box::from_raw(ptr as *mut #name) };
+                *b
+            }
+        }
+        */
     ).into();
     
     let tt_name = Ident::new(&to_snake_case("free_".to_owned() + &name.to_string()), item.span());
     let tt: TokenStream1 = quote!(
         pub extern "C" fn #tt_name(ptr: *mut std::ffi::c_void) {
-            let _ = unsafe{ std::boxed::Box::from_raw(ptr as *mut #name) };
+            let _: Box<#name> = unsafe{ Box::from_raw(ptr as *mut #name) };
         }
     ).into();
 
