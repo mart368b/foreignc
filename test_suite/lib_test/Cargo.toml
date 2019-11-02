@@ -6,3 +6,4 @@ edition = "2018"
 
 [dependencies]
 derive_lib = {path = "../derive_lib"}
+template_lib = {path = "../template_lib"}

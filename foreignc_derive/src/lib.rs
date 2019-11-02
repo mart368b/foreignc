@@ -5,7 +5,7 @@ mod template;
 #[cfg(feature = "template")]
 use template::*;
 #[cfg(feature = "template")]
-use ffi_template::derived_input::{add_func, add_impl};
+use ffi_template::derived_input::{add_func, add_impl, take_impls, take_funcs};
 
 mod arguments;
 mod generate;
