@@ -5,7 +5,9 @@ mod template;
 #[cfg(feature = "template")]
 use template::*;
 #[cfg(feature = "template")]
-use ffi_template::derived_input::{add_func, add_impl, take_impls, take_funcs};
+use ffi_template::derived_input::{add_func, add_free_func, add_struct};
+#[cfg(feature = "template")]
+use ffi_template::RustFreeFunction;
 
 mod arguments;
 mod generate;
@@ -58,7 +60,7 @@ fn convert_impls(impls: ItemImpl, casts: Vec<TypeCast> ) -> TokenStream1 {
 
     #[cfg(feature = "template")]
     let mut implement = {
-        let mut implement = ImplementBlock::default();
+        let mut implement = RustStructure::default();
         if let Type::Path(ref p) = &*impls.self_ty {
             implement.self_ty = p.path.segments[0].ident.to_string();
         }
@@ -85,7 +87,7 @@ fn convert_impls(impls: ItemImpl, casts: Vec<TypeCast> ) -> TokenStream1 {
 
     #[cfg(feature = "template")]
     {
-        add_impl(implement);
+        add_struct(implement);
     }
 
     implementation
@@ -154,6 +156,23 @@ pub fn generate_free_string(_item: TokenStream1) -> TokenStream1 {
         }
     ).into());
 
+    #[cfg(feature = "template")]
+    {
+        let free = RustFreeFunction {
+            ty: RustTypes::String,
+            func: RustFunction {
+                name: "free-string".to_owned(),
+                extern_name: "free-string".to_owned(),
+                inputs: vec![RustArgument {
+                    name: "ptr".to_owned(),
+                    ty: RustTypes::Ptr("c_char".to_owned())
+                }],
+                output: None
+            }
+        };
+        add_free_func(free);
+    }
+
     output
 }
 
@@ -218,15 +237,6 @@ pub fn derive_boxed(input: TokenStream1) -> TokenStream1 {
                 unsafe { &*(ptr as *mut #name) } 
             }
         }
-        /*
-        Unsafe as it frees the memeory silently
-        unsafe impl foreignc::FromFFi<*mut std::ffi::c_void> for #name {
-            fn from_ffi(ptr: *mut std::ffi::c_void) -> Self { 
-                let b: Box<#name> = unsafe{ Box::from_raw(ptr as *mut #name) };
-                *b
-            }
-        }
-        */
     ).into();
     
     let tt_name = Ident::new(&to_snake_case("free_".to_owned() + &name.to_string()), item.span());
@@ -235,6 +245,23 @@ pub fn derive_boxed(input: TokenStream1) -> TokenStream1 {
             let _: Box<#name> = unsafe{ Box::from_raw(ptr as *mut #name) };
         }
     ).into();
+
+    #[cfg(feature = "template")]
+    {
+        let free = RustFreeFunction {
+            ty: RustTypes::Ptr(name.to_string()),
+            func: RustFunction {
+                name: tt_name.to_string(),
+                extern_name: tt_name.to_string(),
+                inputs: vec![RustArgument {
+                    name: "ptr".to_owned(),
+                    ty: RustTypes::Ptr("c_void".to_owned())
+                }],
+                output: None
+            }
+        };
+        add_free_func(free);
+    }
 
     t.extend::<TokenStream1>("#[no_mangle]".parse::<TokenStream1>().unwrap());
     t.extend(tt);

@@ -13,4 +13,4 @@ ffi_template = {path = "../ffi-template", optional = true}
 [features]
 default = []
 derive = ["foreignc_derive"]
-template = ["derive", "foreignc_derive/template"]
+template = ["derive", "ffi_template", "foreignc_derive/template"]

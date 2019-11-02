@@ -4,5 +4,6 @@ members = [
     "foreignc",
     "ffi-template",
     "test_suite/derive_lib",
-    "test_suite/lib_test"
+    "test_suite/lib_test",
+    "test_suite/template_test"
 ]

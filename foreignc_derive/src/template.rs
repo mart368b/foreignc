@@ -2,7 +2,7 @@ use super::arguments::*;
 use proc_macro_error::*;
 use syn::*;
 use core::convert::From;
-pub use ffi_template::{RustFunction, RustTypes, Argument, ImplementBlock};
+pub use ffi_template::{RustFunction, RustTypes, RustArgument, RustStructure};
 
 pub fn to_rust_func(item: &ItemFn, casts: &Vec<TypeCast>, implm: Option<(&Type, &Ident)>) -> RustFunction {
     let mut f = RustFunction::default();
@@ -15,7 +15,7 @@ pub fn to_rust_func(item: &ItemFn, casts: &Vec<TypeCast>, implm: Option<(&Type, 
             FnArg::Typed(ref t) => {
                 let tty = convert_to_rust_type(&t.ty, &casts);
                 if let Pat::Ident(ref ident) = &*t.pat {
-                    f.inputs.push(Argument{
+                    f.inputs.push(RustArgument{
                         name: ident.ident.to_string(), 
                         ty: tty
                     });

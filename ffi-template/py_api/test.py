@@ -1,10 +1,31 @@
 from functools import wraps
 import json
+from ctypes import c_char_p
 
 
 class Lib:
     def __init__(self, src: str):
         self.f = open(src, 'r').read()
+
+    def free_string(self, s):
+        print("Dropped " + str(s))
+
+class Box:
+    def __init__(self, ptr, free, lib):
+        self._as_parameter_ = ptr
+        self.free = free
+        self.lib = lib
+
+    @classmethod
+    def from_param(cls, c):
+        if isinstance(c, cls):
+            return c
+        else:
+            raise TypeError('Wrong type expected ' + str(cls) + ' got ' + str(type(c)))
+
+    def __del__(self):
+        if not self.free is None:
+            self.free(self.lib, self._as_parameter_)
 
 libs = {}
 
@@ -28,34 +49,48 @@ def use_lib(lib_cls, src: str, func=None):
         return func(*args, lib=libs[src], **kwargs)
     return wrap
 
-
 @to_decorator
-def map_arg(mapping, j_args=None, j_kwarg=None, res=False, func=None):
+def map_arg(mapping, mapped=None, func=None):
     @wraps(func)
     def wrap(*args, **kwargs):
-        print(args)
         # Convert args
-        if not j_args is None:
-            nargs = list(map(lambda a: mapping(a[1]) if a[0] in j_args else a[1], enumerate(args)))
-        else: nargs = args;
-        # Convert kwargs
-        if not j_kwarg is None:
-            nkwargs = dict(map(lambda a: (a[0], mapping(a[1])) if a[0] in j_kwarg else a, kwargs.items()))
-        else: nkwargs = kwargs;
+        if mapped is None:
+            nargs = list(map(lambda a: mapping(a[0]), zip(args, func.__code__.co_varnames)))
+            nkwargs = dict(map(lambda a: (a[0], mapping(a[1])), kwargs.items()))
+        else:
+            nargs = list(map(lambda a: mapping(a[0]) if a[1] in mapped else a[0], zip(args, func.__code__.co_varnames)))
+            nkwargs = dict(map(lambda a: (a[0], mapping(a[1])) if a[0] in mapped else a, kwargs.items()))
         # Do action
-        r = func(*nargs, **nkwargs)
-        # Convert result
-        if res: return mapping(r);
-        else: return r;
+        return func(*nargs, **nkwargs)
     return wrap
 
+@to_decorator
+def map_res(mapping, func=None):
+    @wraps(func)
+    def wrap(*args, **kwargs):
+        return mapping(func(*args, **kwargs))
+    return wrap
 
+@to_decorator
+def map_free_res(free_func, func=None):
+    @wraps(func)
+    def wrap(*args, lib=None, **kwargs):
+        return free_func(lib, func(*args, **kwargs))
+    return wrap
 
-@map_arg(json.dumps, j_args=[0]) # Map a to JsonObject
-def my_func(a, b="", lib=None):
-    print(a)
-    print(b)
-    print(lib)
+@to_decorator
+def map_box_res(init, free_func, func=None):
+    @wraps(func)
+    def wrap(*args, lib=None, **kwargs):
+        return init(func(*args, **kwargs), free_func, lib)
+    return wrap
+
+@use_lib(Lib, 'f.txt')
+@map_arg(lambda v: str(v)) # Map a to JsonObject
+@map_box_res(Box, Lib.free_string)
+def my_func(a, b=False, lib=None) -> Box:
+    return a
 
 if __name__ == '__main__':
-    my_func('{"a":"b"}', b='{"c":"d"}')
+    a = my_func(1, 2, 3)
+    del a

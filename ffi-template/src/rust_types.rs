@@ -1,7 +1,13 @@
-pub use crate::{Function, Argument};
+pub use crate::{IFunction, IArgument};
 
 #[derive(Default, Debug, Clone)]
-pub struct ImplementBlock {
+pub struct RustFreeFunction {
+    pub ty: RustTypes,
+    pub func: RustFunction,
+}
+
+#[derive(Default, Debug, Clone)]
+pub struct RustStructure {
     pub self_ty: String,
     pub methods: Vec<RustFunction>
 }
@@ -10,8 +16,14 @@ pub struct ImplementBlock {
 pub struct RustFunction {
     pub name: String,
     pub extern_name: String,
-    pub inputs: Vec<Argument<RustTypes>>,
+    pub inputs: Vec<RustArgument>,
     pub output: Option<RustTypes>
+}
+
+#[derive(Default, Debug, Clone)]
+pub struct RustArgument {
+    pub name: String,
+    pub ty: RustTypes
 }
 
 #[derive(Debug, Clone)]

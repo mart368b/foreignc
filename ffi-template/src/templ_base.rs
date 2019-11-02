@@ -1,11 +1,6 @@
 use std::path::Path;
-use std::fs::File;
-use std::io::prelude::*;
-use tera::{Context, Tera};
-use std::marker::PhantomData;
-use std::default::Default;
 
-pub trait Argument<Ty> 
+pub trait IArgument<Ty> 
 where
     Ty: ToString
 {
@@ -13,36 +8,46 @@ where
     fn get_type(&self) -> &Ty;
 }
 
-pub trait Function<Arg, Ty>
+pub trait IFunction<Arg, Ty>
 where 
     Ty: ToString,
-    Arg: Argument<Ty>
+    Arg: IArgument<Ty>
 {
     fn get_name(&self) -> &str;
+    fn get_ffi_name(&self) -> &str;
     fn get_args(&self) -> &Vec<Arg>;
+    fn get_return(&self) -> Option<&Ty>;
 }
 
-pub trait Format<Func, Arg, Ty>
-where 
+pub trait IStructure<Func, Arg, Ty>
+where
     Ty: ToString,
-    Arg: Argument<Ty>,
-    Func: Function<Arg, Ty>
+    Arg: IArgument<Ty>,
+    Func: IFunction<Arg, Ty>
 {
-    fn get_file_name(package_name: &str) -> String;
-    fn get_template() -> String;
-    fn load_function(&mut self, func: Func);
-    fn get_context(&self) -> Context;
+    fn get_name(&self) -> &str;
+    fn get_methods(&self) -> &Vec<Func>;
 }
+
+pub trait Generator<Struct, Func, Arg, Ty>
+where
+    Ty: ToString,
+    Arg: IArgument<Ty>,
+    Func: IFunction<Arg, Ty>,
+    Struct: IStructure<Func, Arg, Ty>
+{
+    fn write_to(structs: &Vec<Struct>, funcs: &Vec<Func>, dir: &Path);
+}
+
+/*
 
 pub struct OutputFile<Fmt, Func, Arg, Ty>
 where
     Ty: ToString,
     Arg: Argument<Ty>,
     Func: Function<Arg, Ty>,
-    Fmt: Format<Func, Arg, Ty> + Default,
 {
     file_name: String,
-    format: Fmt,
     func: PhantomData<Func>,
     arg: PhantomData<Arg>,
     ty: PhantomData<Ty>
@@ -80,3 +85,4 @@ where
         f.write_all(&c.as_bytes()).unwrap();
     }
 }
+*/
