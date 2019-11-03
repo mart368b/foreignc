@@ -1,9 +1,14 @@
 use super::*;
 
 #[test]
-fn get_res_test() {
-    let resource = get_parsed_dir();
-    assert_eq!(3, resource.functions.len());
-    assert_eq!(0, resource.free_functions.len());
-    assert_eq!(0, resource.structs.len());
+fn get_res_test() -> TResult<()> {
+    let _resource = get_package_dir()?;
+    Ok(())
+}
+
+
+#[test]
+fn render_test() -> TResult<()> {
+    let resource = get_package_dir();
+    Ok(())
 }

@@ -29,14 +29,14 @@ where
     fn get_methods(&self) -> &Vec<Func>;
 }
 
-pub trait Generator<Struct, Func, Arg, Ty>
+pub trait IGenerator<Struct, Func, Arg, Ty>
 where
     Ty: ToString,
     Arg: IArgument<Ty>,
     Func: IFunction<Arg, Ty>,
     Struct: IStructure<Func, Arg, Ty>,
 {
-    fn write_to(structs: &Vec<Struct>, funcs: &Vec<Func>, dir: &Path);
+    fn write_to(&self, dir: &Path);
 }
 
 /*
@@ -80,9 +80,9 @@ where
         let p = Path::new(&self.file_name);
         let template = Fmt::get_template();
         let context = self.format.get_context();
-        let c = Tera::one_off(&template, &context, false).unwrap();
-        let mut f = File::create(p).unwrap();
-        f.write_all(&c.as_bytes()).unwrap();
+        let c = Tera::one_off(&template, &context, false);
+        let mut f = File::create(p);
+        f.write_all(&c.as_bytes());
     }
 }
 */

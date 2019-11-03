@@ -102,7 +102,7 @@ unsafe impl IntoFFi<*mut c_char> for &str {
 
 unsafe impl<'a> FromFFi<*const c_char> for &'a str {
     fn from_ffi(v: *const c_char) -> &'a str {
-        unsafe { CStr::from_ptr(v) }.to_str().unwrap()
+        unsafe { CStr::from_ptr(v) }.to_str().expect("Failed to parse string as utf-8")
     }
 }
 

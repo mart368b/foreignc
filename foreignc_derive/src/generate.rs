@@ -1,8 +1,10 @@
 use super::arguments::*;
-use super::to_snake_case;
+
+use super::*;
+
+use super::error::*;
 
 use core::convert::From;
-use proc_macro_error::*;
 use quote::*;
 use std::iter::{Extend, FromIterator};
 use syn::punctuated::Punctuated;
@@ -13,7 +15,7 @@ pub fn to_extern_item_fn(
     mut item: ItemFn,
     casts: &Vec<TypeCast>,
     implm: Option<(&Type, Ident)>,
-) -> ItemFn {
+) -> DResult<ItemFn> {
     let mut itemc = item.clone();
     let identc = Ident::new(&format!("{}_ffi", itemc.sig.ident), item.sig.ident.span());
     itemc.sig.ident = identc.clone();
@@ -24,7 +26,7 @@ pub fn to_extern_item_fn(
         match ty {
             // Convert self type
             FnArg::Receiver(_) => {
-                abort!("Cannot have self in item fn");
+                return Err(syn::Error::new(Span::call_site(), "Cannot have self in item fn").into());
             }
             // Use arg type
             FnArg::Typed(ref mut t) => {
@@ -34,14 +36,14 @@ pub fn to_extern_item_fn(
                     p.mutability = None;
                 }
                 args.push(&*t.pat);
-                let ty = convert_to_ptr(&t.ty, &casts);
+                let ty = convert_to_ptr(&t.ty, &casts)?;
                 t.ty = ty;
             }
         }
     }
 
     if let ReturnType::Type(_, ref mut ty) = item.sig.output {
-        let nty = convert_to_ptr(ty, casts);
+        let nty = convert_to_ptr(ty, casts)?;
         *ty = nty;
         if let Type::Ptr(ref mut ptr) = &mut **ty {
             ptr.mutability = Some(Token![mut](ptr.span()));
@@ -49,7 +51,7 @@ pub fn to_extern_item_fn(
         }
     };
 
-    ItemFn {
+    Ok(ItemFn {
         block: Box::new(
             parse(if let Some((caller, method_name)) = implm {
                 quote!(
@@ -78,8 +80,8 @@ pub fn to_extern_item_fn(
                     }
                 )
                 .into()
-            })
-            .unwrap(),
+            })?
+            ,
         ),
         vis: VisPublic {
             pub_token: Token![pub](item.sig.span()),
@@ -93,10 +95,10 @@ pub fn to_extern_item_fn(
             }),
             ..item.sig
         },
-    }
+    })
 }
 
-pub fn convert_item_fn(self_ty: &Box<Type>, item_fn: ImplItemMethod) -> ItemFn {
+pub fn convert_item_fn(self_ty: &Box<Type>, item_fn: ImplItemMethod) -> DResult<ItemFn> {
     let mut inputs = Vec::new();
     for i in &item_fn.sig.inputs {
         let p_ty = if let FnArg::Receiver(r) = i {
@@ -135,7 +137,7 @@ pub fn convert_item_fn(self_ty: &Box<Type>, item_fn: ImplItemMethod) -> ItemFn {
         };
         inputs.push(p_ty);
     }
-    ItemFn {
+    Ok(ItemFn {
         vis: item_fn.vis,
         attrs: item_fn.attrs,
         sig: Signature {
@@ -147,7 +149,7 @@ pub fn convert_item_fn(self_ty: &Box<Type>, item_fn: ImplItemMethod) -> ItemFn {
                     if let Type::Path(ref p) = &*self_ty.clone() {
                         p.path.segments[0].ident.to_string()
                     } else {
-                        abort!("Failed to get self type name")
+                        return Err(syn::Error::new(Span::call_site(), "Failed to get self type name").into());
                     }
                 )),
                 item_fn.sig.ident.span(),
@@ -155,10 +157,10 @@ pub fn convert_item_fn(self_ty: &Box<Type>, item_fn: ImplItemMethod) -> ItemFn {
             ..item_fn.sig
         },
         block: Box::new(item_fn.block),
-    }
+    })
 }
 
-pub fn convert_to_ptr(ty: &Box<Type>, casts: &Vec<TypeCast>) -> Box<Type> {
+pub fn convert_to_ptr(ty: &Box<Type>, casts: &Vec<TypeCast>) -> DResult<Box<Type>> {
     match &**ty {
         Type::Reference(ref r) => convert_to_ptr(&r.elem, casts),
         Type::Path(ref path) => {
@@ -170,47 +172,47 @@ pub fn convert_to_ptr(ty: &Box<Type>, casts: &Vec<TypeCast>) -> Box<Type> {
                         let t = Box::new(inner_ty.clone());
                         convert_to_ptr(&t, casts)
                     } else {
-                        abort!("Result or option should not have lifetime")
+                        return Err(syn::Error::new(Span::call_site(), "Result or option should not have lifetime").into());
                     }
                 } else {
-                    abort!("Expected generic arguments after Result or Option")
+                    return Err(syn::Error::new(Span::call_site(), "Expected generic arguments after Result or Option").into());
                 }
             } else {
                 if let Some(ref cast) = casts.iter().find(|c| c.ty0.to_string() == path_name) {
                     match cast.ty {
-                        Types::JSON => cast.ty1.clone(),
+                        Types::JSON => Ok(cast.ty1.clone()),
                     }
                 } else {
                     if path_name.ends_with("String") | path_name.ends_with("str") {
-                        Box::new(parse_str("*const std::os::raw::c_char").unwrap())
+                        Ok(Box::new(parse_str("*const std::os::raw::c_char").unwrap()))
                     } else {
                         match path_name.as_str() {
                             "i8" | "i16" | "i32" | "i64" | "i128" | "isize" | "u8" | "u16"
                             | "u32" | "u64" | "u128" | "usize" | "f32" | "f64" | "bool"
-                            | "char" => ty.clone(),
-                            _ => Box::new(
+                            | "char" => Ok(ty.clone()),
+                            _ => Ok(Box::new(
                                 TypePtr {
                                     star_token: Token![*](ty.span()),
                                     const_token: None,
                                     mutability: Some(Token![mut](ty.span())),
                                     elem: Box::new(parse_str("std::ffi::c_void").unwrap()),
                                 }
-                                .into(),
+                                .into()),
                             ),
                         }
                     }
                 }
             }
         }
-        Type::Ptr(_) => ty.clone(),
-        _ => Box::new(
+        Type::Ptr(_) => Ok(ty.clone()),
+        _ => Ok(Box::new(
             TypePtr {
                 star_token: Token![*](ty.span()),
                 const_token: None,
                 mutability: Some(Token![mut](ty.span())),
                 elem: ty.clone(),
             }
-            .into(),
+            .into()),
         ),
     }
 }

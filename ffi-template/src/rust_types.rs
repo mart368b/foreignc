@@ -8,6 +8,24 @@ pub enum MetaType {
     FreeFunc(RustFreeFunction),
 }
 
+impl From<RustFunction> for MetaType {
+    fn from (s: RustFunction) -> MetaType {
+        MetaType::Func(s)
+    }
+}
+
+impl From<RustStructure> for MetaType {
+    fn from (s: RustStructure) -> MetaType {
+        MetaType::Struct(s)
+    }
+}
+
+impl From<RustFreeFunction> for MetaType {
+    fn from (s: RustFreeFunction) -> MetaType {
+        MetaType::FreeFunc(s)
+    }
+}
+
 #[derive(Default, Deserialize, Serialize, Debug, Clone)]
 pub struct RustFreeFunction {
     pub ty: RustTypes,
@@ -18,6 +36,7 @@ pub struct RustFreeFunction {
 pub struct RustStructure {
     pub self_ty: String,
     pub methods: Vec<RustFunction>,
+    pub destructor: Option<String>
 }
 
 #[derive(Default, Deserialize, Serialize, Debug, Clone)]

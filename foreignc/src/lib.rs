@@ -10,9 +10,19 @@ pub use foreignc_derive::{
 };
 
 #[allow(unused_imports)]
-use ffi_template::derived_input::{create_dir_path, ParsedFiles};
+use ffi_template::derived_input::{get_dir_path, ParsedPathFiles};
 
 #[cfg(feature = "template")]
-pub fn get_parsed_dir() -> ParsedFiles {
-    ParsedFiles::new(create_dir_path().to_str().unwrap())
+pub fn get_package_dir() -> TResult<ParsedPathFiles> {
+    let pkg_name = std::env::var("CARGO_PKG_NAME")?;
+    let dir = get_dir_path(pkg_name)?;
+    let dir_str = dir.to_str().unwrap();
+    ParsedPathFiles::from_path_directory(dir_str)
+}
+
+#[cfg(feature = "template")]
+pub fn get_parsed_dir(name: String) -> TResult<ParsedPathFiles> {
+    let dir = get_dir_path(name)?;
+    let dir_str = dir.to_str().unwrap();
+    ParsedPathFiles::from_path_directory(dir_str)
 }
