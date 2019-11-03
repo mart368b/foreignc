@@ -1,70 +1,99 @@
-use lazy_static::lazy_static;
-use std::sync::Mutex;
-use std::iter::FromIterator;
-use crate::{RustFunction, RustStructure, RustFreeFunction};
+use crate::{MetaType, RustFreeFunction, RustFunction, RustStructure};
+use std::fs::{create_dir, read_dir, read_to_string, remove_file, File, OpenOptions};
+use std::path::{Path, PathBuf};
+use std::sync::Once;
 
-lazy_static! {
-    static ref STRUCTS: Mutex<Vec<RustStructure>> = Mutex::new(Vec::new());
-    static ref STRUCT_LOCK: Mutex<bool> = Mutex::new(false);
-    static ref FUNCTIONS: Mutex<Vec<RustFunction>> = Mutex::new(Vec::new());
-    static ref FUNC_LOCK: Mutex<bool> = Mutex::new(false);
-    static ref FREE_FUNCTIONS: Mutex<Vec<RustFreeFunction>> = Mutex::new(Vec::new());
-    static ref FREE_FUNC_LOCK: Mutex<bool> = Mutex::new(false);
+static INIT: Once = Once::new();
+
+/// Setup function that is only run once, even if called multiple times.
+fn clean_up<P: AsRef<Path>>(p: P) {
+    INIT.call_once(|| {
+        for f in read_dir(p).unwrap() {
+            remove_file(f.unwrap().path()).unwrap();
+        }
+    });
 }
 
-pub fn add_struct(implm: RustStructure) {
-    if *STRUCT_LOCK.lock().unwrap() {
-        panic!("Structs have already been taken");
+pub fn create_dir_path() -> PathBuf {
+    let mut dir = Path::new(env!("OUT_DIR")).to_path_buf();
+    dir.push("derived_data");
+    if !dir.exists() {
+        create_dir(&dir).unwrap();
     }
-    STRUCTS.lock().unwrap().push(implm);
+    dir.push(std::env::var("CARGO_PKG_NAME").unwrap());
+    if !dir.exists() {
+        create_dir(&dir).unwrap();
+    }
+    dir
 }
 
-pub fn add_free_func(func: RustFreeFunction) {
-    if *FREE_FUNC_LOCK.lock().unwrap() {
-        panic!("Functions have already been taken");
-    }
-    FREE_FUNCTIONS.lock().unwrap().push(func);
+pub fn create_file_path(name: String) -> PathBuf {
+    let mut dir = create_dir_path();
+    clean_up(&dir);
+    dir.push(name);
+    dir
 }
 
-pub fn add_func(func: RustFunction) {
-    if *FUNC_LOCK.lock().unwrap() {
-        panic!("Functions have already been taken");
-    }
-    FUNCTIONS.lock().unwrap().push(func);
+#[derive(Default, Debug)]
+pub struct ParsedFiles {
+    pub structs: Vec<RustStructure>,
+    pub functions: Vec<RustFunction>,
+    pub free_functions: Vec<RustFreeFunction>,
 }
 
-pub fn take_free_funcs() -> Vec<RustFreeFunction> {
-    let mut lock = FREE_FUNC_LOCK.lock().unwrap();
-    if *lock {
-        panic!("Struct have already been taken");
-    }
-    *lock = true;
-    let mut v = FREE_FUNCTIONS.lock().unwrap();
-    let funcs = Vec::from_iter(v.iter().map(|i| i.clone()));
-    v.clear();
-    funcs
+fn open_file<P: AsRef<Path>>(p: P) -> File {
+    OpenOptions::new().create(true).write(true).open(p).unwrap()
 }
 
-pub fn take_structs() -> Vec<RustStructure> {
-    let mut lock = STRUCT_LOCK.lock().unwrap();
-    if *lock {
-        panic!("Struct have already been taken");
-    }
-    *lock = true;
-    let mut v = STRUCTS.lock().unwrap();
-    let structs = Vec::from_iter(v.iter().map(|i| i.clone()));
-    v.clear();
-    structs
-}
+impl ParsedFiles {
+    pub fn new(dir: &str) -> ParsedFiles {
+        let mut pf = ParsedFiles::default();
+        let pp = Path::new(&dir);
+        if !pp.exists() {
+            panic!(format!("{} does not exist", dir))
+        }
 
-pub fn take_funcs() -> Vec<RustFunction> {
-    let mut lock = FUNC_LOCK.lock().unwrap();
-    if *lock {
-        panic!("Functions have already been taken");
+        for p in read_dir(&pp).unwrap() {
+            let p = p.unwrap().path();
+            let s = read_to_string(p).unwrap();
+            let v: MetaType = serde_json::from_str(&s).unwrap();
+            match v {
+                MetaType::FreeFunc(ff) => pf.free_functions.push(ff),
+                MetaType::Func(f) => pf.functions.push(f),
+                MetaType::Struct(s) => pf.structs.push(s),
+            };
+        }
+
+        pf
     }
-    *lock = true;
-    let mut v = FUNCTIONS.lock().unwrap();
-    let funcs = Vec::from_iter(v.iter().map(|i| i.clone()));
-    v.clear();
-    funcs
+
+    #[cfg(feature = "derived_input")]
+    pub fn add_struct(s: RustStructure) {
+        let path = create_file_path(s.self_ty.to_owned());
+        if !path.exists() {
+            let w = open_file(path);
+            let ss = &MetaType::Struct(s);
+            serde_json::to_writer(w, &ss).unwrap();
+        }
+    }
+
+    #[cfg(feature = "derived_input")]
+    pub fn add_func(s: RustFunction) {
+        let path = create_file_path(s.extern_name.to_owned());
+        if !path.exists() {
+            let w = open_file(path);
+            let ss = &MetaType::Func(s);
+            serde_json::to_writer(w, &ss).unwrap();
+        }
+    }
+
+    #[cfg(feature = "derived_input")]
+    pub fn add_free_func(s: RustFreeFunction) {
+        let path = create_file_path(s.func.name.to_owned());
+        if !path.exists() {
+            let w = open_file(path);
+            let ss = &MetaType::FreeFunc(s);
+            serde_json::to_writer(w, &ss).unwrap();
+        }
+    }
 }

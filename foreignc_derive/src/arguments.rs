@@ -1,14 +1,14 @@
-use syn::parse::{ParseStream, Parse};
+use syn::parse::{Parse, ParseStream};
 use syn::*;
 
 pub enum Types {
-    JSON
+    JSON,
 }
 
 pub struct TypeCast {
     pub ty0: Ident,
     pub ty1: Box<Type>,
-    pub ty: Types
+    pub ty: Types,
 }
 
 impl Parse for TypeCast {
@@ -19,13 +19,13 @@ impl Parse for TypeCast {
 
         let (ty, tty) = match ty1.to_string().as_str() {
             "Json" => Ok((parse_str("*const std::os::raw::c_char")?, Types::JSON)),
-            _ =>  Err(input.error("Unexpected FFI type type"))
+            _ => Err(input.error("Unexpected FFI type type")),
         }?;
 
         Ok(TypeCast {
             ty0,
             ty1: Box::new(ty),
-            ty: tty
+            ty: tty,
         })
     }
 }
@@ -40,18 +40,18 @@ impl Parse for Items {
         if input.peek(Token![pub]) | input.peek(Token![crate]) | input.peek(Token![fn]) {
             Ok(Items {
                 items: Some(input.parse()?),
-                impls: None
+                impls: None,
             })
-        }else if input.peek(Token![impl]) {
+        } else if input.peek(Token![impl]) {
             Ok(Items {
                 items: None,
-                impls: Some(input.parse()?)
+                impls: Some(input.parse()?),
             })
-        }else  {
+        } else {
             Ok(Items {
                 impls: None,
-                items: None
-            })    
+                items: None,
+            })
         }
     }
 }

@@ -1,7 +1,7 @@
 #[allow(unused_imports)]
-use crate::*;
-#[allow(unused_imports)]
 use crate::derive_lib::*;
+#[allow(unused_imports)]
+use crate::*;
 
 #[cfg(test)]
 mod impl_test {
@@ -23,7 +23,7 @@ mod impl_test {
         unsafe {
             let s = new_boxed_struct();
             assert_eq!(0, get_boxed_struct(s));
-            
+
             inc_boxed_struct(s);
             inc_boxed_struct(s);
             inc_boxed_struct(s);

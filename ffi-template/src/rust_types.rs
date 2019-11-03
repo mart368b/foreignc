@@ -1,39 +1,47 @@
-pub use crate::{IFunction, IArgument};
+pub use crate::{IArgument, IFunction};
+use serde::{Deserialize, Serialize};
 
-#[derive(Default, Debug, Clone)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
+pub enum MetaType {
+    Func(RustFunction),
+    Struct(RustStructure),
+    FreeFunc(RustFreeFunction),
+}
+
+#[derive(Default, Deserialize, Serialize, Debug, Clone)]
 pub struct RustFreeFunction {
     pub ty: RustTypes,
     pub func: RustFunction,
 }
 
-#[derive(Default, Debug, Clone)]
+#[derive(Default, Deserialize, Serialize, Debug, Clone)]
 pub struct RustStructure {
     pub self_ty: String,
-    pub methods: Vec<RustFunction>
+    pub methods: Vec<RustFunction>,
 }
 
-#[derive(Default, Debug, Clone)]
+#[derive(Default, Deserialize, Serialize, Debug, Clone)]
 pub struct RustFunction {
     pub name: String,
     pub extern_name: String,
     pub inputs: Vec<RustArgument>,
-    pub output: Option<RustTypes>
+    pub output: Option<RustTypes>,
 }
 
-#[derive(Default, Debug, Clone)]
+#[derive(Default, Deserialize, Serialize, Debug, Clone)]
 pub struct RustArgument {
     pub name: String,
-    pub ty: RustTypes
+    pub ty: RustTypes,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 pub enum RustTypes {
     Ptr(String),
     Option(Box<RustTypes>),
     Result(Box<RustTypes>),
     Primitive(String),
     String,
-    Json(String)
+    Json(String),
 }
 
 impl Default for RustTypes {

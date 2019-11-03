@@ -3,8 +3,8 @@ mod tests;
 
 pub use bindings::*;
 
-pub use std::os::raw::{c_char, c_void};
 pub use std::ffi::CStr;
+pub use std::os::raw::{c_char, c_void};
 
 pub fn assert_cstr(expected: &str, actual: *mut c_char) {
     unsafe {

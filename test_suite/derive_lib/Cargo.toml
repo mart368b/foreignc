@@ -5,7 +5,7 @@ authors = ["mart368b <martinpinholt@hotmail.com>"]
 edition = "2018"
 
 [dependencies]
-foreignc = {path = "../../foreignc", features = ["derive"]}
+foreignc = {path = "../../foreignc"}
 
 serde = { version = "1.0.102", features = ["derive"] }
 serde_json = "1.0.41"

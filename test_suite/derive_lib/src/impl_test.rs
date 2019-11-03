@@ -2,15 +2,13 @@ use crate::*;
 
 #[derive(Boxed)]
 pub struct BoxedStruct {
-    acc: u32
+    acc: u32,
 }
 
 #[wrap_extern]
 impl BoxedStruct {
     pub fn new() -> BoxedStruct {
-        BoxedStruct {
-            acc: 0
-        }
+        BoxedStruct { acc: 0 }
     }
 
     pub fn inc(&mut self) {

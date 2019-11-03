@@ -1,17 +1,17 @@
 use std::path::Path;
 
-pub trait IArgument<Ty> 
+pub trait IArgument<Ty>
 where
-    Ty: ToString
+    Ty: ToString,
 {
     fn get_name(&self) -> &str;
     fn get_type(&self) -> &Ty;
 }
 
 pub trait IFunction<Arg, Ty>
-where 
+where
     Ty: ToString,
-    Arg: IArgument<Ty>
+    Arg: IArgument<Ty>,
 {
     fn get_name(&self) -> &str;
     fn get_ffi_name(&self) -> &str;
@@ -23,7 +23,7 @@ pub trait IStructure<Func, Arg, Ty>
 where
     Ty: ToString,
     Arg: IArgument<Ty>,
-    Func: IFunction<Arg, Ty>
+    Func: IFunction<Arg, Ty>,
 {
     fn get_name(&self) -> &str;
     fn get_methods(&self) -> &Vec<Func>;
@@ -34,7 +34,7 @@ where
     Ty: ToString,
     Arg: IArgument<Ty>,
     Func: IFunction<Arg, Ty>,
-    Struct: IStructure<Func, Arg, Ty>
+    Struct: IStructure<Func, Arg, Ty>,
 {
     fn write_to(structs: &Vec<Struct>, funcs: &Vec<Func>, dir: &Path);
 }
