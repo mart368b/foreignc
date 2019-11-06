@@ -82,18 +82,7 @@ where
     Ok(())
 }
 
-#[derive(Default, Debug)]
-pub struct ParsedPathFiles {
-    pub structs: Vec<RustStructure>,
-    pub functions: Vec<RustFunction>,
-    pub free_functions: Vec<RustFreeFunction>,
-}
-
-impl ParsedPathFiles {
-
-    pub fn new () -> Self {
-        Self::default()
-    }
+impl RustContext {
 
     pub fn from_path_directory(dir: &str) -> TResult<Self> {
         let mut pf = Self::new();
@@ -107,8 +96,8 @@ impl ParsedPathFiles {
             let s = read_to_string(path)?;
             let v: MetaType = serde_json::from_str(&s)?;
             match v {
-                MetaType::FreeFunc(ff) => pf.free_functions.push(ff),
-                MetaType::Func(f) => pf.functions.push(f),
+                MetaType::FreeFunc(ff) => pf.free_funcs.push(ff),
+                MetaType::Func(f) => pf.funcs.push(f),
                 MetaType::Struct(s) => pf.add_struct(s),
             };
         }
@@ -130,8 +119,8 @@ impl ParsedPathFiles {
     }
 
     pub fn append(&mut self, mut other: Self) {
-        self.functions.append(&mut other.functions);
-        self.free_functions.append(&mut other.free_functions);
+        self.funcs.append(&mut other.funcs);
+        self.free_funcs.append(&mut other.free_funcs);
         for s in other.structs {
             self.add_struct(s);
         }

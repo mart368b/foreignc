@@ -1,0 +1,8 @@
+class ffi_templateLib(BaseLib):
+    def __init__(self, src: str):
+        BaseLib.__init__(self, src)
+        [object]
+        
+
+print('Hello World')
+

@@ -9,6 +9,8 @@ mod generate;
 use arguments::*;
 use generate::*;
 
+use foreignc_err::throw_err;
+
 use proc_macro::TokenStream as TokenStream1;
 use proc_macro2::TokenStream as TokenStream2;
 #[allow(unused_imports)]

@@ -1,33 +1,9 @@
+from typing import *
 from functools import wraps
-import json
-from ctypes import c_char_p
+from .classes import Box, get_lib, BaseLib
 
-
-class Lib:
-    def __init__(self, src: str):
-        self.f = open(src, 'r').read()
-
-    def free_string(self, s):
-        print("Dropped " + str(s))
-
-class Box:
-    def __init__(self, ptr, free, lib):
-        self._as_parameter_ = ptr
-        self.free = free
-        self.lib = lib
-
-    @classmethod
-    def from_param(cls, c):
-        if isinstance(c, cls):
-            return c
-        else:
-            raise TypeError('Wrong type expected ' + str(cls) + ' got ' + str(type(c)))
-
-    def __del__(self):
-        if not self.free is None:
-            self.free(self.lib, self._as_parameter_)
-
-libs = {}
+T = TypeVar('T')
+TRes = TypeVar('TRes')
 
 def to_decorator(func):
     @wraps(func)
@@ -39,18 +15,17 @@ def to_decorator(func):
     return wrapper
 
 @to_decorator
-def use_lib(lib_cls, src: str, func=None):
+def use_lib(name: str, func=None):
     # Connect the library
-    if src not in libs:
-        libs[src] = lib_cls(src)
+    lib = get_lib(name)
     @wraps(func)
     def wrap(*args, **kwargs):
         # Parse the library to the function
-        return func(*args, lib=libs[src], **kwargs)
+        return func(*args, lib=lib, **kwargs)
     return wrap
 
 @to_decorator
-def map_arg(mapping, mapped=None, func=None):
+def map_arg(mapping: Callable[[T], TRes], mapped: Optional[List[str]]=None, func=None):
     @wraps(func)
     def wrap(*args, **kwargs):
         # Convert args
@@ -65,32 +40,22 @@ def map_arg(mapping, mapped=None, func=None):
     return wrap
 
 @to_decorator
-def map_res(mapping, func=None):
+def map_res(mapping: Callable[[T], TRes], func=None):
     @wraps(func)
     def wrap(*args, **kwargs):
         return mapping(func(*args, **kwargs))
     return wrap
 
 @to_decorator
-def map_free_res(free_func, func=None):
+def map_free_res(free_func: Callable[[BaseLib, T], TRes], func=None):
     @wraps(func)
     def wrap(*args, lib=None, **kwargs):
         return free_func(lib, func(*args, **kwargs))
     return wrap
 
 @to_decorator
-def map_box_res(init, free_func, func=None):
+def box_res(free_func: Callable[[BaseLib, T], TRes], func=None):
     @wraps(func)
     def wrap(*args, lib=None, **kwargs):
-        return init(func(*args, **kwargs), free_func, lib)
+        return Box(func(*args, **kwargs), free_func, lib)
     return wrap
-
-@use_lib(Lib, 'f.txt')
-@map_arg(lambda v: str(v)) # Map a to JsonObject
-@map_box_res(Box, Lib.free_string)
-def my_func(a, b=False, lib=None) -> Box:
-    return a
-
-if __name__ == '__main__':
-    a = my_func(1, 2, 3)
-    del a

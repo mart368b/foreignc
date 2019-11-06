@@ -1,4 +1,3 @@
-pub use crate::{IArgument, IFunction};
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
@@ -26,25 +25,32 @@ impl From<RustFreeFunction> for MetaType {
     }
 }
 
+pub type RustFunction = Function<RustArgument, RustTypes>;
+
+
 #[derive(Default, Deserialize, Serialize, Debug, Clone)]
-pub struct RustFreeFunction {
+pub struct FreeFunction {
     pub ty: RustTypes,
     pub func: RustFunction,
 }
 
 #[derive(Default, Deserialize, Serialize, Debug, Clone)]
-pub struct RustStructure {
+pub struct Structure<Func, Arg, Ty>  {
     pub self_ty: String,
-    pub methods: Vec<RustFunction>,
+    pub methods: Vec<Func>,
     pub destructor: Option<String>
 }
 
 #[derive(Default, Deserialize, Serialize, Debug, Clone)]
-pub struct RustFunction {
+pub struct Function<Arg, Ty> 
+where
+    Arg: Default, Deserialize, Serialize, Debug, Clone,
+    Ty: Default, Deserialize, Serialize, Debug, Clone
+{
     pub name: String,
     pub extern_name: String,
-    pub inputs: Vec<RustArgument>,
-    pub output: Option<RustTypes>,
+    pub inputs: Vec<Arg>,
+    pub output: Option<Ty>,
 }
 
 #[derive(Default, Deserialize, Serialize, Debug, Clone)]

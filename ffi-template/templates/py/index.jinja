@@ -1,0 +1,10 @@
+class {{ class_name }}(BaseLib):
+    def __init__(self, src: str):
+        BaseLib.__init__(self, src)
+        {% for func in funcs -%}
+            {% include 'ffiapi.jinja' %}
+        {%- endfor %}
+        
+{% include 'free_funcs.jinja' %}
+{% include 'structs.jinja' %}
+{% include 'funcs.jinja' %}

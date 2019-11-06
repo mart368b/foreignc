@@ -1,28 +1,19 @@
 use std::*;
+use foreignc_err::impl_from;
 
 #[derive(Debug)]
 pub enum TemplateError {
     IoErr(io::Error),
     VarErr(env::VarError),
-    SerdeErr(serde_json::error::Error)
-}
-
-macro_rules! impl_from {
-    ($($err:path => $ty:ident::$varient:ident),*) => {
-        $(
-            impl From<$err> for $ty {
-                fn from(e: $err) -> $ty {
-                    $ty::$varient(e)
-                }
-            }
-        )*
-    };
+    SerdeErr(serde_json::error::Error),
+    TeraErr(tera::Error)
 }
 
 impl_from! {
     io::Error => TemplateError::IoErr,
     env::VarError => TemplateError::VarErr,
-    serde_json::error::Error => TemplateError::SerdeErr
+    serde_json::error::Error => TemplateError::SerdeErr,
+    tera::Error => TemplateError::TeraErr
 }
 
 impl fmt::Display for TemplateError {
@@ -31,6 +22,7 @@ impl fmt::Display for TemplateError {
             TemplateError::IoErr(e) => e.fmt(f),
             TemplateError::VarErr(e) => e.fmt(f),
             TemplateError::SerdeErr(e) => e.fmt(f),
+            TemplateError::TeraErr(e) => e.fmt(f)
         }
     }
 }

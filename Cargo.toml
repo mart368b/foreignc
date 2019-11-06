@@ -2,6 +2,7 @@
 members = [
     "foreignc_derive",
     "foreignc",
+    "foreignc_err",
     "ffi-template",
     "test_suite/derive_lib",
     "test_suite/lib_test",

@@ -1,9 +1,9 @@
 mod rust_types;
-mod templ_base;
+mod py_gen;
 
 mod error;
 pub mod derived_input;
 
 pub use error::*;
 pub use rust_types::*;
-pub use templ_base::*;
+pub use py_gen::*;
