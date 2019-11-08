@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::fmt::Debug;
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub enum MetaType {
@@ -25,32 +26,25 @@ impl From<RustFreeFunction> for MetaType {
     }
 }
 
-pub type RustFunction = Function<RustArgument, RustTypes>;
-
-
 #[derive(Default, Deserialize, Serialize, Debug, Clone)]
-pub struct FreeFunction {
+pub struct RustFreeFunction<> {
     pub ty: RustTypes,
     pub func: RustFunction,
 }
 
 #[derive(Default, Deserialize, Serialize, Debug, Clone)]
-pub struct Structure<Func, Arg, Ty>  {
+pub struct RustStructure {
     pub self_ty: String,
-    pub methods: Vec<Func>,
+    pub methods: Vec<RustFunction>,
     pub destructor: Option<String>
 }
 
 #[derive(Default, Deserialize, Serialize, Debug, Clone)]
-pub struct Function<Arg, Ty> 
-where
-    Arg: Default, Deserialize, Serialize, Debug, Clone,
-    Ty: Default, Deserialize, Serialize, Debug, Clone
-{
+pub struct RustFunction {
     pub name: String,
     pub extern_name: String,
-    pub inputs: Vec<Arg>,
-    pub output: Option<Ty>,
+    pub inputs: Vec<RustArgument>,
+    pub output: Option<RustTypes>,
 }
 
 #[derive(Default, Deserialize, Serialize, Debug, Clone)]

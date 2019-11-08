@@ -16,17 +16,6 @@ impl RustContext {
         RustContext::default()
     }
 
-    fn convert_ty(ty: RustTypes) -> String {
-        match ty {
-            RustTypes::Ptr(s) => s.to_owned(),
-            RustTypes::Option(s) => RustContext::convert_ty(*s.clone()),
-            RustTypes::Result(s) => RustContext::convert_ty(*s.clone()),
-            RustTypes::Primitive(s) => s.to_owned(),
-            RustTypes::Json(_)
-            | RustTypes::String => "c_char_p".to_owned(),
-        }
-    }
-
     fn create_context(&self) -> Context {
         let mut ncon = Context::new();
         ncon.insert("structs", &self.structs);
@@ -34,7 +23,6 @@ impl RustContext {
         ncon.insert("free_funcs", &self.free_funcs);
         let class_name = format!("{}Lib", std::env::var("CARGO_PKG_NAME").unwrap());
         ncon.insert("class_name", &class_name);
-        ncon.insert("convert_ty", &RustContext::convert_ty);
         ncon
     }
 
