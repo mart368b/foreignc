@@ -1,35 +1,6 @@
 use syn::parse::{Parse, ParseStream};
 use syn::*;
 
-pub enum Types {
-    JSON,
-}
-
-pub struct TypeCast {
-    pub ty0: Ident,
-    pub ty1: Box<Type>,
-    pub ty: Types,
-}
-
-impl Parse for TypeCast {
-    fn parse(input: ParseStream) -> Result<Self> {
-        let ty0: Ident = input.parse()?;
-        let _as_token: Token![as] = input.parse()?;
-        let ty1: Ident = input.parse()?;
-
-        let (ty, tty) = match ty1.to_string().as_str() {
-            "Json" => Ok((parse_str("*const std::os::raw::c_char")?, Types::JSON)),
-            _ => Err(input.error("Unexpected FFI type type")),
-        }?;
-
-        Ok(TypeCast {
-            ty0,
-            ty1: Box::new(ty),
-            ty: tty,
-        })
-    }
-}
-
 pub struct Items {
     pub impls: Option<ItemImpl>,
     pub items: Option<ItemFn>,

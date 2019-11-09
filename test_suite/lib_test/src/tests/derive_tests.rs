@@ -53,13 +53,8 @@ mod serde_test {
         unsafe {
             let s = new_serde_struct();
             assert_cstr("{\"value\":[\"Hello\",\"World!\"]}", s);
-            let b = json_to_box(s);
-            let ss = box_to_json(b);
-            assert_cstr("{\"value\":[\"Hello\",\"World!\"]}", ss);
 
             free_string(s);
-            free_serde_struct(b);
-            free_string(ss);
         }
     }
 }

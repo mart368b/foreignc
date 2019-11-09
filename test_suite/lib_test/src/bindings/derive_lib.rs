@@ -15,8 +15,6 @@ extern "C" {
     // serde_test.rs
     pub fn free_serde_struct(ptr: *mut c_void);
     pub fn new_serde_struct() -> *mut c_char;
-    pub fn json_to_box(s: *mut c_char) -> *mut c_void;
-    pub fn box_to_json(s: *mut c_void) -> *mut c_char;
 
     //impl_test.rs
     pub fn new_boxed_struct() -> *mut c_void;

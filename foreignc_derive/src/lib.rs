@@ -35,22 +35,14 @@ mod _template {
 use _template::*;
 
 #[proc_macro_attribute]
-pub fn inspect(_attr: TokenStream1, item: TokenStream1) -> TokenStream1 {
-    let it = throw_err!(parse::<ItemFn>(item));
-    it.into_token_stream().into()
-}
-
-#[proc_macro_attribute]
 pub fn wrap_extern(attr: TokenStream1, input: TokenStream1) -> TokenStream1 {
-    let parser = Punctuated::<TypeCast, Token![,]>::parse_terminated;
-    let casts: Vec<TypeCast> = throw_err!(parser.parse(attr)).into_iter().collect();
     let items: Items = throw_err!(parse(input));
 
     let ffi_impl = if let Some(item) = items.items {
-        convert_items(item, casts)
+        convert_items(item)
     } else if let Some(impls) = items.impls {
         let mut cimpls: TokenStream1 = impls.clone().into_token_stream().into();
-        cimpls.extend::<TokenStream1>(convert_impls(impls, casts));
+        cimpls.extend::<TokenStream1>(convert_impls(impls));
         cimpls
     } else {
         throw_err!(msg: "Can only implement extern on impl of fn block")
@@ -59,7 +51,7 @@ pub fn wrap_extern(attr: TokenStream1, input: TokenStream1) -> TokenStream1 {
     ffi_impl
 }
 
-fn convert_impls(impls: ItemImpl, casts: Vec<TypeCast>) -> TokenStream1 {
+fn convert_impls(impls: ItemImpl) -> TokenStream1 {
     let _span = impls.span().clone();
     let mut implementation = TokenStream1::new();
 
@@ -79,11 +71,11 @@ fn convert_impls(impls: ItemImpl, casts: Vec<TypeCast>) -> TokenStream1 {
 
             #[cfg(feature = "template")]
             {
-                let f = to_rust_func(&item, &casts, Some((&*impls.self_ty, &method_name)));
+                let f = to_rust_func(&item, Some((&*impls.self_ty, &method_name)));
                 implement.methods.push(throw_err!(f));
             }
             
-            let extern_item_fn = to_extern_item_fn(item, &casts, Some((&*impls.self_ty, method_name)));
+            let extern_item_fn = to_extern_item_fn(item, Some((&*impls.self_ty, method_name)));
             let extern_stream: TokenStream2 = throw_err!(extern_item_fn).into_token_stream();
             implementation.extend::<TokenStream1>("#[no_mangle]".parse::<TokenStream1>().expect("Failed to parse no_mangle"));
             implementation.extend::<TokenStream1>(extern_stream.into());
@@ -101,60 +93,25 @@ fn convert_impls(impls: ItemImpl, casts: Vec<TypeCast>) -> TokenStream1 {
     implementation
 }
 
-fn convert_items(item: ItemFn, casts: Vec<TypeCast>) -> TokenStream1 {
+fn convert_items(item: ItemFn) -> TokenStream1 {
     let _span = item.span().clone();
     let mut implementation = TokenStream1::new();
 
     #[cfg(feature = "template")]
     {
-        let func = throw_err!(to_rust_func(&item, &casts, None));
+        let func = throw_err!(to_rust_func(&item, None));
         throw_err!(
                 add_to_path(func)
                 .map_err(|e| syn::Error::new(_span, &e))
         );
     }
 
-    let extern_item_fn = to_extern_item_fn(item, &casts, None);
+    let extern_item_fn = to_extern_item_fn(item, None);
     let extern_stream: TokenStream2 = throw_err!(extern_item_fn).into_token_stream();
     implementation.extend::<TokenStream1>("#[no_mangle]".parse::<TokenStream1>().expect("Failed to parse no_mangle"));
     implementation.extend::<TokenStream1>(extern_stream.into());
 
     implementation
-}
-
-#[proc_macro_derive(Json)]
-pub fn derive_json(input: TokenStream1) -> TokenStream1 {
-    let item: Item = throw_err!(parse(input));
-    let name = match &item {
-        Item::Enum(ref e) => &e.ident,
-        Item::Struct(ref s) => &s.ident,
-        _ => throw_err!(msg: "Can only implement extern on impl of fn block"),
-    };
-
-    quote!(
-        unsafe impl foreignc::FromFFi<*const std::os::raw::c_char> for #name{
-            fn from_ffi(p: *const std::os::raw::c_char) -> Self {
-                let s = foreignc::FromFFi::from_ffi(p);
-                serde_json::from_str(s).unwrap()
-            }
-        }
-
-        unsafe impl foreignc::IntoFFi<*mut std::os::raw::c_char> for &#name {
-            fn into_ffi(v: Self) -> *mut std::os::raw::c_char {
-                let s = serde_json::to_string(v);
-                foreignc::IntoFFi::into_ffi(s)
-            }
-        }
-
-        unsafe impl foreignc::IntoFFi<*mut std::os::raw::c_char> for #name {
-            fn into_ffi(v: Self) -> *mut std::os::raw::c_char {
-                let s = serde_json::to_string(&v);
-                foreignc::IntoFFi::into_ffi(s)
-            }
-        }
-
-    )
-    .into()
 }
 
 #[proc_macro]
@@ -176,8 +133,8 @@ pub fn generate_free_string(_item: TokenStream1) -> TokenStream1 {
         let free = RustFreeFunction {
             ty: RustTypes::String,
             func: RustFunction {
-                name: "free-string".to_owned(),
-                extern_name: "free-string".to_owned(),
+                name: "free_string".to_owned(),
+                extern_name: "free_string".to_owned(),
                 inputs: vec![RustArgument {
                     name: "ptr".to_owned(),
                     ty: RustTypes::Ptr("c_char".to_owned()),
@@ -212,6 +169,27 @@ pub fn generate_last_error(_item: TokenStream1) -> TokenStream1 {
         )
         .into(),
     );
+
+    #[cfg(feature = "template")]
+    {
+        let take = RustFreeFunction {
+            ty: RustTypes::Result(Box::new(RustTypes::String)),
+            func: RustFunction {
+                name: "free_string".to_owned(),
+                extern_name: "free_string".to_owned(),
+                inputs: vec![RustArgument {
+                    name: "ptr".to_owned(),
+                    ty: RustTypes::Ptr("c_char".to_owned()),
+                }],
+                output: None,
+            },
+        };
+
+        throw_err!(
+            add_to_path(take)
+                .map_err(|e| syn::Error::new(Span::call_site(), &e))
+        );
+    }
 
     output
 }
@@ -309,4 +287,53 @@ pub fn derive_boxed(input: TokenStream1) -> TokenStream1 {
     t.extend(tt);
 
     t
+}
+
+
+#[proc_macro_derive(Json)]
+pub fn derive_json(input: TokenStream1) -> TokenStream1 {
+    let item: Item = throw_err!(parse(input));
+    let _span = item.span().clone();
+    let name = match &item {
+        Item::Enum(ref e) => &e.ident,
+        Item::Struct(ref s) => &s.ident,
+        _ => throw_err!(msg: "Can only implement extern on impl of fn block"),
+    };
+
+    #[cfg(feature = "template")]
+    {
+        let s = RustStructure{
+            self_ty: name.to_string(),
+            methods: Vec::new(),
+            destructor: Some("free_string".to_owned())
+        };
+        throw_err!(
+            add_to_path(s)
+                .map_err(|e| syn::Error::new(_span, &e))
+        );
+    }
+    
+    quote!(
+        unsafe impl foreignc::FromFFi<*mut std::ffi::c_void> for #name{
+            fn from_ffi(p: *mut std::ffi::c_void) -> Self {
+                let s = foreignc::FromFFi::from_ffi(p as *const std::os::raw::c_char);
+                serde_json::from_str(s).unwrap()
+            }
+        }
+
+        unsafe impl foreignc::IntoFFi<*mut std::ffi::c_void> for &#name {
+            fn into_ffi(v: Self) -> *mut std::ffi::c_void {
+                let s = serde_json::to_string(v);
+                foreignc::IntoFFi::into_ffi(s) as *mut std::ffi::c_void
+            }
+        }
+
+        unsafe impl foreignc::IntoFFi<*mut std::ffi::c_void> for #name {
+            fn into_ffi(v: Self) -> *mut std::ffi::c_void {
+                let s = serde_json::to_string(&v);
+                foreignc::IntoFFi::into_ffi(s) as *mut std::ffi::c_void
+            }
+        }
+    )
+    .into()
 }

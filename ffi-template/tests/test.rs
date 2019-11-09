@@ -11,9 +11,28 @@ fn initialize() -> RustContext {
                     RustArgument {
                         name: "a".to_owned(),
                         ty: RustTypes::String
+                    },
+                    RustArgument {
+                        name: "b".to_owned(),
+                        ty: RustTypes::Primitive("bool".to_owned())
                     }
                 ],
-                output: None
+                output: Some(RustTypes::String)
+            },
+            RustFunction {
+                name: "SomeFunc".to_owned(),
+                extern_name: "ExternName".to_owned(),
+                inputs: vec![
+                    RustArgument {
+                        name: "a".to_owned(),
+                        ty: RustTypes::String
+                    },
+                    RustArgument {
+                        name: "b".to_owned(),
+                        ty: RustTypes::Primitive("bool".to_owned())
+                    }
+                ],
+                output: Some(RustTypes::String)
             }
         ],
         free_funcs: Vec::new(),
@@ -24,6 +43,6 @@ fn initialize() -> RustContext {
 #[test]
 fn build() -> TResult<()> {
     let con = initialize();
-    con.generate_python_api(Path::new("test.txt"))?;
+    con.generate_python_api(Path::new("test.py"))?;
     Ok(())
 }

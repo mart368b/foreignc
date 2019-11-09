@@ -13,7 +13,6 @@ use syn::*;
 
 pub fn to_extern_item_fn(
     mut item: ItemFn,
-    casts: &Vec<TypeCast>,
     implm: Option<(&Type, Ident)>,
 ) -> DResult<ItemFn> {
     let mut itemc = item.clone();
@@ -36,14 +35,14 @@ pub fn to_extern_item_fn(
                     p.mutability = None;
                 }
                 args.push(&*t.pat);
-                let ty = convert_to_ptr(&t.ty, &casts)?;
+                let ty = convert_to_ptr(&t.ty)?;
                 t.ty = ty;
             }
         }
     }
 
     if let ReturnType::Type(_, ref mut ty) = item.sig.output {
-        let nty = convert_to_ptr(ty, casts)?;
+        let nty = convert_to_ptr(ty)?;
         *ty = nty;
         if let Type::Ptr(ref mut ptr) = &mut **ty {
             ptr.mutability = Some(Token![mut](ptr.span()));
@@ -160,9 +159,9 @@ pub fn convert_item_fn(self_ty: &Box<Type>, item_fn: ImplItemMethod) -> DResult<
     })
 }
 
-pub fn convert_to_ptr(ty: &Box<Type>, casts: &Vec<TypeCast>) -> DResult<Box<Type>> {
+pub fn convert_to_ptr(ty: &Box<Type>) -> DResult<Box<Type>> {
     match &**ty {
-        Type::Reference(ref r) => convert_to_ptr(&r.elem, casts),
+        Type::Reference(ref r) => convert_to_ptr(&r.elem),
         Type::Path(ref path) => {
             let seg0 = &path.path.segments[0];
             let path_name = seg0.ident.to_string();
@@ -170,7 +169,7 @@ pub fn convert_to_ptr(ty: &Box<Type>, casts: &Vec<TypeCast>) -> DResult<Box<Type
                 if let PathArguments::AngleBracketed(ref inner) = seg0.arguments {
                     if let GenericArgument::Type(ref inner_ty) = inner.args[0] {
                         let t = Box::new(inner_ty.clone());
-                        convert_to_ptr(&t, casts)
+                        convert_to_ptr(&t)
                     } else {
                         return Err(syn::Error::new(Span::call_site(), "Result or option should not have lifetime").into());
                     }
@@ -178,28 +177,22 @@ pub fn convert_to_ptr(ty: &Box<Type>, casts: &Vec<TypeCast>) -> DResult<Box<Type
                     return Err(syn::Error::new(Span::call_site(), "Expected generic arguments after Result or Option").into());
                 }
             } else {
-                if let Some(ref cast) = casts.iter().find(|c| c.ty0.to_string() == path_name) {
-                    match cast.ty {
-                        Types::JSON => Ok(cast.ty1.clone()),
-                    }
+                if path_name.ends_with("String") | path_name.ends_with("str") {
+                    Ok(Box::new(parse_str("*const std::os::raw::c_char").unwrap()))
                 } else {
-                    if path_name.ends_with("String") | path_name.ends_with("str") {
-                        Ok(Box::new(parse_str("*const std::os::raw::c_char").unwrap()))
-                    } else {
-                        match path_name.as_str() {
-                            "i8" | "i16" | "i32" | "i64" | "i128" | "isize" | "u8" | "u16"
-                            | "u32" | "u64" | "u128" | "usize" | "f32" | "f64" | "bool"
-                            | "char" => Ok(ty.clone()),
-                            _ => Ok(Box::new(
-                                TypePtr {
-                                    star_token: Token![*](ty.span()),
-                                    const_token: None,
-                                    mutability: Some(Token![mut](ty.span())),
-                                    elem: Box::new(parse_str("std::ffi::c_void").unwrap()),
-                                }
-                                .into()),
-                            ),
-                        }
+                    match path_name.as_str() {
+                        "i8" | "i16" | "i32" | "i64" | "i128" | "isize" | "u8" | "u16"
+                        | "u32" | "u64" | "u128" | "usize" | "f32" | "f64" | "bool"
+                        | "char" => Ok(ty.clone()),
+                        _ => Ok(Box::new(
+                            TypePtr {
+                                star_token: Token![*](ty.span()),
+                                const_token: None,
+                                mutability: Some(Token![mut](ty.span())),
+                                elem: Box::new(parse_str("std::ffi::c_void").unwrap()),
+                            }
+                            .into()),
+                        ),
                     }
                 }
             }

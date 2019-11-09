@@ -1,6 +1,0 @@
-self.{{ func.extern_name }} = self.lib.{{ func.extern_name }}
-self.{{ func.extern_name }}.argtypes = (
-    {% for arg in funcs.inputs -%}
-        {{ convert_ty(arg.ty) }}
-    {%- endfor %})
-self.{{ func.extern_name }}restypes

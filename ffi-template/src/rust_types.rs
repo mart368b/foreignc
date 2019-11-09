@@ -32,6 +32,7 @@ pub struct RustFreeFunction<> {
     pub func: RustFunction,
 }
 
+
 #[derive(Default, Deserialize, Serialize, Debug, Clone)]
 pub struct RustStructure {
     pub self_ty: String,
@@ -45,6 +46,12 @@ pub struct RustFunction {
     pub extern_name: String,
     pub inputs: Vec<RustArgument>,
     pub output: Option<RustTypes>,
+}
+
+impl AsRef<RustFunction> for RustFunction {
+    fn as_ref(&self) -> &RustFunction {
+        self
+    }
 }
 
 #[derive(Default, Deserialize, Serialize, Debug, Clone)]
@@ -61,6 +68,25 @@ pub enum RustTypes {
     Primitive(String),
     String,
     Json(String),
+}
+
+impl RustTypes {
+    pub fn get_root(&self) -> &RustTypes {
+        match self {
+            RustTypes::Ptr(_) => self,
+            RustTypes::Option(s) => RustTypes::get_root(s.as_ref().get_root()),
+            RustTypes::Result(s) => RustTypes::get_root(s.as_ref().get_root()),
+            RustTypes::Primitive(_) => self,
+            RustTypes::String => self,
+            RustTypes::Json(_) => self,
+        }
+    }
+}
+
+impl AsRef<RustTypes> for RustTypes {
+    fn as_ref(&self) -> &RustTypes {
+        self
+    }
 }
 
 impl Default for RustTypes {

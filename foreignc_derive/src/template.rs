@@ -6,7 +6,6 @@ use syn::*;
 
 pub fn to_rust_func(
     item: &ItemFn,
-    casts: &Vec<TypeCast>,
     implm: Option<(&Type, &Ident)>,
 ) -> DResult<RustFunction> {
     let mut f = RustFunction::default();
@@ -17,7 +16,7 @@ pub fn to_rust_func(
                 return Err(syn::Error::new(Span::call_site(), "Cannot have self in item fn").into());
             }
             FnArg::Typed(ref t) => {
-                let tty = convert_to_rust_type(&t.ty, &casts)?;
+                let tty = convert_to_rust_type(&t.ty)?;
                 if let Pat::Ident(ref ident) = &*t.pat {
                     f.inputs.push(RustArgument {
                         name: ident.ident.to_string(),
@@ -37,15 +36,15 @@ pub fn to_rust_func(
     }
 
     if let ReturnType::Type(_, ref ty) = item.sig.output {
-        let tty = convert_to_rust_type(ty, casts)?;
+        let tty = convert_to_rust_type(ty)?;
         f.output = Some(tty);
     };
     Ok(f)
 }
 
-pub fn convert_to_rust_type(ty: &Box<Type>, casts: &Vec<TypeCast>) -> DResult<RustTypes> {
+pub fn convert_to_rust_type(ty: &Box<Type>) -> DResult<RustTypes> {
     match &**ty {
-        Type::Reference(ref r) => convert_to_rust_type(&r.elem, casts),
+        Type::Reference(ref r) => convert_to_rust_type(&r.elem),
         Type::Ptr(_) => Ok(RustTypes::Ptr("c_void".to_owned())),
         Type::Path(ref path) => {
             let seg0 = &path.path.segments[0];
@@ -54,7 +53,7 @@ pub fn convert_to_rust_type(ty: &Box<Type>, casts: &Vec<TypeCast>) -> DResult<Ru
                 if let PathArguments::AngleBracketed(ref inner) = seg0.arguments {
                     if let GenericArgument::Type(ref inner_ty) = inner.args[0] {
                         let t = Box::new(inner_ty.clone());
-                        let inner = convert_to_rust_type(&t, casts)?;
+                        let inner = convert_to_rust_type(&t)?;
                         if path_name == "Result" {
                             Ok(RustTypes::Result(Box::new(inner)))
                         } else {
@@ -67,20 +66,14 @@ pub fn convert_to_rust_type(ty: &Box<Type>, casts: &Vec<TypeCast>) -> DResult<Ru
                     return Err(syn::Error::new(Span::call_site(), "Expected generic arguments after Result or Option").into());
                 }
             } else {
-                if let Some(ref cast) = casts.iter().find(|c| c.ty0.to_string() == path_name) {
-                    match cast.ty {
-                        Types::JSON => Ok(RustTypes::Json(cast.ty0.to_string())),
-                    }
+                if path_name.ends_with("String") | path_name.ends_with("str") {
+                    Ok(RustTypes::String)
                 } else {
-                    if path_name.ends_with("String") | path_name.ends_with("str") {
-                        Ok(RustTypes::String)
-                    } else {
-                        match path_name.as_str() {
-                            "i8" | "i16" | "i32" | "i64" | "i128" | "isize" | "u8" | "u16"
-                            | "u32" | "u64" | "u128" | "usize" | "f32" | "f64" | "bool"
-                            | "char" => Ok(RustTypes::Primitive(path_name.as_str().to_owned())),
-                            _ => Ok(RustTypes::Ptr(path_name.as_str().to_owned())),
-                        }
+                    match path_name.as_str() {
+                        "i8" | "i16" | "i32" | "i64" | "i128" | "isize" | "u8" | "u16"
+                        | "u32" | "u64" | "u128" | "usize" | "f32" | "f64" | "bool"
+                        | "char" => Ok(RustTypes::Primitive(path_name.as_str().to_owned())),
+                        _ => Ok(RustTypes::Ptr(path_name.as_str().to_owned())),
                     }
                 }
             }
