@@ -1,23 +1,28 @@
-from foreignc_py import *
+from foreignc import *
+from ctypes import c_void_p, c_char_p, cast
+
+def handler(v):
+    print(type(v))
+    return c_char_p(v).value
 
 print(__name__)
 if __name__ == '__main__':
     class MyLib(BaseLib):
         def __init__(self, src: str):
             super().__init__('MyLib', src)
+            self.parse_string = self.lib.parse_string
+            self.parse_string.argtypes = (c_char_p,)
+            self.parse_string.restype = None
 
-        def free_string(self, v):
-            print('Dropped ' + str(v))
+            self.get_string = self.lib.get_string
+            self.get_string.restype = lib_char_p('MyLib')
+            self.get_string.errcheck = Json
 
-    MyLib('f.txt')
+            self.free_string = self.lib.free_string
+            self.free_string.argtypes = (c_char_p,)
 
-    @use_lib('MyLib')
-    @map_arg(lambda v: str(v), mapped=['b'])  # Map a to JsonObject
-    @box_res(MyLib.free_string)
-    def my_func(a, b, c, lib=None) -> Box:
-        print(lib)
-        return a
+    lib = MyLib('template_test.dll')
 
-    a = my_func(1, 2, 3)
-    del a
-    print("a")
+    s = lib.get_string("a")
+    lib.parse_string(s)
+    print(s)

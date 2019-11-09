@@ -17,11 +17,10 @@ def to_decorator(func):
 @to_decorator
 def use_lib(name: str, func=None):
     # Connect the library
-    lib = get_lib(name)
     @wraps(func)
     def wrap(*args, **kwargs):
         # Parse the library to the function
-        return func(*args, lib=lib, **kwargs)
+        return func(*args, lib=get_lib(name), **kwargs)
     return wrap
 
 @to_decorator

@@ -1,4 +1,3 @@
-use super::arguments::*;
 use super::error::DResult;
 use proc_macro2::Span;
 pub use ffi_template::{RustArgument, RustFunction, RustStructure, RustTypes};

@@ -22,24 +22,22 @@ impl RustContext {
         ncon.insert("class_name", &format!("{}Lib", env!("CARGO_PKG_NAME")));
         ncon.insert("structs", &self.structs);
         ncon.insert("funcs", &self.funcs);
-        let abi: Vec<PythonABI> = self.funcs.iter().map(|a| PythonABI::from_rust(a, self)).collect();
+        let mut abi: Vec<PythonABI> = self.funcs.iter().map(|a| PythonABI::from_rust(a, self)).collect();
+        let mut free_abi: Vec<PythonABI> = self.free_funcs.iter().map(|a| PythonABI::from_rust(&a.func, self)).collect();
+        abi.append(&mut free_abi);
         ncon.insert("abis", &abi);
         ncon.insert("free_funcs", &self.free_funcs);
         ncon
     }
 
-    
-
-    fn create_tera(&self) -> TResult<Tera> {
-        let mut t = Tera::parse("templates/py/*")?;
-        t.build_inheritance_chains()?;
-        Ok(t)
-    }
-
     pub fn generate_python_api(&self, path: &Path) -> TResult<()> {
-        let tmpl = self.create_tera()?;
+        println!("{:#?}", self);
         let context = self.create_context();
-        let content = tmpl.render("index.jinja", &context)?;
+        let content = Tera::one_off(
+            &include_str!("../templates/py.jinja"), 
+            &context,
+            false
+        )?;
         println!("{}", &content);
         write(path, content)?;
         Ok(())

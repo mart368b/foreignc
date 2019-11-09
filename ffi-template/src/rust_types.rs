@@ -67,7 +67,6 @@ pub enum RustTypes {
     Result(Box<RustTypes>),
     Primitive(String),
     String,
-    Json(String),
 }
 
 impl RustTypes {
@@ -78,7 +77,6 @@ impl RustTypes {
             RustTypes::Result(s) => RustTypes::get_root(s.as_ref().get_root()),
             RustTypes::Primitive(_) => self,
             RustTypes::String => self,
-            RustTypes::Json(_) => self,
         }
     }
 }
@@ -103,7 +101,6 @@ impl ToString for RustTypes {
             RustTypes::Result(s) => format!("Result<{}>", s.to_string()),
             RustTypes::Primitive(s) => s.clone(),
             RustTypes::String => "String".to_owned(),
-            RustTypes::Json(s) => format!("String /*{}*/", s),
         }
     }
 }

@@ -2,22 +2,17 @@ extern crate proc_macro;
 
 #[macro_use]
 mod error;
-
-mod arguments;
 mod generate;
 
-use arguments::*;
 use generate::*;
-
 use foreignc_err::throw_err;
 
 use proc_macro::TokenStream as TokenStream1;
 use proc_macro2::TokenStream as TokenStream2;
 #[allow(unused_imports)]
 use proc_macro2::Span;
+use syn::parse::{Parse, ParseStream};
 use quote::*;
-use syn::parse::Parser;
-use syn::punctuated::Punctuated;
 use syn::*;
 
 use core::convert::From;
@@ -34,8 +29,34 @@ mod _template {
 #[cfg(feature = "template")]
 use _template::*;
 
+struct Items {
+    pub impls: Option<ItemImpl>,
+    pub items: Option<ItemFn>,
+}
+
+impl Parse for Items {
+    fn parse(input: ParseStream) -> Result<Self> {
+        if input.peek(Token![pub]) | input.peek(Token![crate]) | input.peek(Token![fn]) {
+            Ok(Items {
+                items: Some(input.parse()?),
+                impls: None,
+            })
+        } else if input.peek(Token![impl]) {
+            Ok(Items {
+                items: None,
+                impls: Some(input.parse()?),
+            })
+        } else {
+            Ok(Items {
+                impls: None,
+                items: None,
+            })
+        }
+    }
+}
+
 #[proc_macro_attribute]
-pub fn wrap_extern(attr: TokenStream1, input: TokenStream1) -> TokenStream1 {
+pub fn wrap_extern(_attr: TokenStream1, input: TokenStream1) -> TokenStream1 {
     let items: Items = throw_err!(parse(input));
 
     let ffi_impl = if let Some(item) = items.items {
@@ -122,7 +143,8 @@ pub fn generate_free_string(_item: TokenStream1) -> TokenStream1 {
     output.extend::<TokenStream1>(
         quote!(
             pub extern "C" fn free_string(ptr: *mut std::os::raw::c_char) {
-                let _ = unsafe { foreignc::CString::from_raw(ptr) };
+                let s = unsafe { foreignc::CString::from_raw(ptr) };
+                println!("{:?}", s);
             }
         )
         .into(),
