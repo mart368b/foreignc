@@ -144,7 +144,7 @@ pub fn generate_free_string(_item: TokenStream1) -> TokenStream1 {
         quote!(
             pub extern "C" fn free_string(ptr: *mut std::os::raw::c_char) {
                 let s = unsafe { foreignc::CString::from_raw(ptr) };
-                println!("{:?}", s);
+                println!("Dropped: {:?}", s);
             }
         )
         .into(),
@@ -269,7 +269,8 @@ pub fn derive_boxed(input: TokenStream1) -> TokenStream1 {
     );
     let tt: TokenStream1 = quote!(
         pub extern "C" fn #tt_name(ptr: *mut std::ffi::c_void) {
-            let _: Box<#name> = unsafe{ Box::from_raw(ptr as *mut #name) };
+            let s: Box<#name> = unsafe{ Box::from_raw(ptr as *mut #name) };
+            println!("Dropped box: {:?}", s);
         }
     )
     .into();
@@ -343,16 +344,23 @@ pub fn derive_json(input: TokenStream1) -> TokenStream1 {
             }
         }
 
+        unsafe impl foreignc::IntoFFi<*mut std::ffi::c_void> for &mut #name {
+            fn into_ffi(v: Self) -> *mut std::ffi::c_void {
+                let s = serde_json::to_string(v).unwrap();
+                foreignc::IntoFFi::into_ffi(s) as *mut std::ffi::c_void
+            }
+        }
+
         unsafe impl foreignc::IntoFFi<*mut std::ffi::c_void> for &#name {
             fn into_ffi(v: Self) -> *mut std::ffi::c_void {
-                let s = serde_json::to_string(v);
+                let s = serde_json::to_string(v).unwrap();
                 foreignc::IntoFFi::into_ffi(s) as *mut std::ffi::c_void
             }
         }
 
         unsafe impl foreignc::IntoFFi<*mut std::ffi::c_void> for #name {
             fn into_ffi(v: Self) -> *mut std::ffi::c_void {
-                let s = serde_json::to_string(&v);
+                let s = serde_json::to_string(&v).unwrap();
                 foreignc::IntoFFi::into_ffi(s) as *mut std::ffi::c_void
             }
         }

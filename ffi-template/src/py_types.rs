@@ -48,21 +48,25 @@ impl PythonTypes {
 
     fn get_input_handler(&self) -> String {
         match self {
-            PythonTypes::CCHARP => "c_char_p".to_owned(),
+            PythonTypes::CCHARP => "LibString".to_owned(),
             PythonTypes::Pointer(s) => s.to_owned(),
             PythonTypes::Primitive(p) => p.to_owned(),
-            PythonTypes::Option(s) => format!("handle_input_option({})", s.get_input_handler()),
+            PythonTypes::Option(s) => format!("Option({})", s.get_input_handler()),
             PythonTypes::Result(s) => s.get_input_handler(),
         }
     }
 
     fn get_output_handler(&self) -> String {
         match self {
-            PythonTypes::CCHARP => "lib_char_p('--class_name--')".to_owned(),
+            PythonTypes::CCHARP => "LibString".to_owned(),
             PythonTypes::Pointer(s) => s.to_owned(),
             PythonTypes::Primitive(p) => p.to_owned(),
-            PythonTypes::Option(s) => format!("handle_output_option({})", s.get_output_handler()),
-            PythonTypes::Result(s) => format!("handle_result({})", s.get_output_handler()),
+            PythonTypes::Option(s) => {
+                format!("Option({})", s.get_output_handler())
+            },
+            PythonTypes::Result(s) => {
+                format!("Result({})", s.get_output_handler())
+            },
         }
     }
 }

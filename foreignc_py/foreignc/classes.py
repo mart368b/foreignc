@@ -1,78 +1,101 @@
 import json, os
-from ctypes import c_char_p, cdll, cast
-
-libs = {}
+from ctypes import c_char_p, cdll, cast, c_wchar_p, c_void_p
+from weakref import ref
 
 class BaseLib:
-    def __init__(self, name: str, src: str):
-        libs[name] = self
-        self.lib = cdll.LoadLibrary(os.path.abspath(src))
-
-def get_lib(name):
-    if name not in libs:
-        raise IndexError('No library named: "' + name + '" has been initialized')
-    return libs[name]
+    def __init__(self, src: str):
+        self.__lib__ = cdll.LoadLibrary(os.path.abspath(src))
 
 def lib_char_p_to_str(v, r, a):
     return str(v)
 
-def lib_char_p(name: str):
+class LibValue:
+    def __init__(self):
+        self.init()
 
-    class LibStringPointer(c_char_p):
-        def __str__(self):
-            return self.value.decode('utf-8')
+    def init(self):
+        self.__lib__ = None
+        self.__free__ = None
+        self.__value__ = None
 
-        def __del__(self):
-            # Deallocate the string.
-            print('Droping')
-            get_lib(name).free_string(self)
+    def free_self(self, name: str):
+        value = ref(self)
+        self.__value__ = property(lambda: value())
+        self.__free__ = lambda lib, value: getattr(lib, name)(value.fget())
 
-    return LibStringPointer
+    def __into__(self):
+        return self
 
-
-class Box:
-    def __init__(self, value, free_func, lib_name:str):
-        self.__value__ = value
-        self.free = free_func
-        self.lib = get_lib(lib_name)
-
-    @property
-    def _as_parameter_(self):
-        return self.__value__
+    def __errcheck__(cls, v: str, *args, **kwargs):
+        return v
 
     def __del__(self):
-        if not self.free is None:
-            self.free(self.lib, self.__value__)
+        if not hasattr(self, '__free__') or self.__free__ is None:
+            return
+        self.__free__(self.__lib__, self.__value__)
 
-class Json:
-    def __init__(self, value, *args, **kwargs):
-        if isinstance(value, c_char_p):
-            self.__value__ = str(value)
-        elif isinstance(value, str):
-            self.__value__ = value
-        elif isinstance(value, Json):
-            self.__value__ = value.__value__
-        else:
-            self.__value__ = json.dumps(value, *args, **kwargs)
+class LibString(c_char_p, LibValue):
+    def __into__(self):
+        self.free_self('free_string')
+        return self.value.decode('utf-8')
 
-        self.object = property(self.get_object, self.set_object)
-        self.string = property(self.get_string, self.set_string)
+class Box(c_void_p, LibValue):
+    def __into__(self):
+        self.free_self(self.get_free_func())
+        return self
 
-    def __str__(self):
-        return self.get_string()
-
-    def get_string(self):
-        return self.__value__
-
-    def set_string(self, v: str):
-        self.__value__ = v
-
-    def get_object(self, *args, **kwargs):
-        return json.loads(self.__value__, *args, **kwargs)
-
-    def set_object(self, v: str, *args, **kwargs):
-        self.__value__ = json.dumps(v, *args, **kwargs)
+    @staticmethod
+    def get_free_func() -> str:
+        raise NotImplementedError()
 
     @property
     def _as_parameter_(self):
-        return c_char_p(self.__value__.encode('utf-8'))
+        return self.__value__
+
+class Json(LibString, LibValue):
+    def __init__(self, lib):
+        super(LibValue, self).__init__()
+        if lib is not None:
+            if hasattr(lib, '__lib__'):
+                self.__lib__ = lib.__lib__
+            else:
+                self.__lib__ = lib
+        self.__json__ = ""
+
+    def __repr__ (self):
+        return super(LibValue, self).__repr__ ()
+
+    def __into__(self):
+        value = LibString.__into__(self)
+        return self.wrap_str(value, self.__lib__)
+
+    @classmethod
+    def wrap_str(cls, value: str, lib: BaseLib):
+        s = cls(lib)
+        s.str_value = value
+        return s
+
+    @classmethod
+    def wrap_obj(cls, obj, lib: BaseLib):
+        s = cls(lib)
+        s.object = obj
+        return s
+
+    @property
+    def str_value(self):
+        return self.__json__
+
+    @str_value.setter
+    def str_value(self, s: str):
+        self.__json__ = s
+
+    @property
+    def object(self):
+        return json.loads(self.__json__)
+
+    @object.setter
+    def object(self, v: str):
+        self.__json__ = json.dumps(v)
+
+    def from_param(self):
+        return c_char_p(self.__json__.encode('utf-8'))

@@ -1,6 +1,8 @@
 from typing import *
 from functools import wraps
-from .classes import Box, get_lib, BaseLib
+from ctypes import c_char_p
+from .classes import Box, BaseLib, LibValue
+from weakref import ref
 
 T = TypeVar('T')
 TRes = TypeVar('TRes')
@@ -15,13 +17,33 @@ def to_decorator(func):
     return wrapper
 
 @to_decorator
-def use_lib(name: str, func=None):
-    # Connect the library
+def create_abi(name: str, argtypes = (), restype = None, errcheck = None, func = None):
+    if not isinstance(argtypes, tuple):
+        raise TypeError('Expected tuple got ' + str(type(argtypes)))
+    is_implemented = False
     @wraps(func)
-    def wrap(*args, **kwargs):
-        # Parse the library to the function
-        return func(*args, lib=get_lib(name), **kwargs)
-    return wrap
+    def wrapper(self, *args, **kwargs):
+        nonlocal is_implemented
+        if not is_implemented:
+            is_implemented = True
+            abi_func = getattr(self.__lib__, name)
+            abi_func.argtypes = argtypes
+            abi_func.restype = restype
+            abi_func.errcheck = apply_lib_value(ref(self), errcheck)
+        return func(self, *args, **kwargs)
+    return wrapper
+
+def apply_lib_value(lib, errcheck = None):
+    def inner(r, *args, **kwargs):
+        if isinstance(r, LibValue):
+            r.__lib__ = lib().__lib__
+            r = r.__into__()
+        if errcheck is not None:
+            res = errcheck(r, *args, **kwargs)
+            return apply_lib_value(lib, None)(res, *args, **kwargs)
+        else:
+            return r
+    return inner
 
 @to_decorator
 def map_arg(mapping: Callable[[T], TRes], mapped: Optional[List[str]]=None, func=None):
@@ -36,25 +58,4 @@ def map_arg(mapping: Callable[[T], TRes], mapped: Optional[List[str]]=None, func
             nkwargs = dict(map(lambda a: (a[0], mapping(a[1])) if a[0] in mapped else a, kwargs.items()))
         # Do action
         return func(*nargs, **nkwargs)
-    return wrap
-
-@to_decorator
-def map_res(mapping: Callable[[T], TRes], func=None):
-    @wraps(func)
-    def wrap(*args, **kwargs):
-        return mapping(func(*args, **kwargs))
-    return wrap
-
-@to_decorator
-def map_free_res(free_func: Callable[[BaseLib, T], TRes], func=None):
-    @wraps(func)
-    def wrap(*args, lib=None, **kwargs):
-        return free_func(lib, func(*args, **kwargs))
-    return wrap
-
-@to_decorator
-def box_res(free_func: Callable[[BaseLib, T], TRes], func=None):
-    @wraps(func)
-    def wrap(*args, lib=None, **kwargs):
-        return Box(func(*args, **kwargs), free_func, lib)
     return wrap

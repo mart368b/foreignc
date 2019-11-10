@@ -3,6 +3,14 @@ from foreignc import *
 class ffi_templateLib(BaseLib):
     def __init__(self, src: str):
         super().__init__('ffi_templateLib', src)
+        self.get_boxed_struct = self.lib.get_boxed_struct
+        self.get_boxed_struct.argtypes = ()
+        self.get_boxed_struct.restypes = BoxedStruct
+        
+        self.get_number = self.lib.get_number
+        self.get_number.argtypes = ()
+        self.get_number.restypes = int
+        
         self.get_string = self.lib.get_string
         self.get_string.argtypes = ()
         self.get_string.restypes = lib_char_p('ffi_templateLib')
