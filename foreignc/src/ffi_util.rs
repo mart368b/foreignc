@@ -126,9 +126,8 @@ where
     fn from_ffi(v: Self::PtrIn) -> Self {
         unsafe{
             let ptr = v.as_mut().unwrap();
-            //ptr.content.as_mut().map(|v| T::from_ffi(<T as FromFFi>::PtrIn::from(v)))
-        };
-        None
+            ptr.content.as_mut().map(|v| T::from_ffi(<T as FromFFi>::PtrIn::from(v)))
+        }
     }
 }
 

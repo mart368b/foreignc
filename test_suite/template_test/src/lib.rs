@@ -71,3 +71,9 @@ pub fn get_some() -> Option<JsonStruct> {
         value: "World!".to_owned()
     })
 }
+
+#[wrap_extern]
+pub fn set_some(v: Option<JsonStruct>) {
+    println!("{:?}", v);
+}
+

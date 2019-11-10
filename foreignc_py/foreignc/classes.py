@@ -113,7 +113,12 @@ def convert_ty(ty):
         return c_float
     return ty
 
+options = {}
+
 def OPTION(ty):
+    if ty in options:
+        return options[ty]
+
     class COption(Structure, LibValue):
         _fields_ = [('content', POINTER(convert_ty(ty)))]
 
@@ -133,5 +138,6 @@ def OPTION(ty):
                 self.__some__ = None
 
             return self
-
-    return POINTER(COption)
+    tt = POINTER(COption)
+    options[ty] = tt
+    return tt
