@@ -1,7 +1,7 @@
 import time, json, gc, sys
 from pprint import pprint
 from foreignc import *
-from ctypes import c_void_p, c_char_p, cast, c_wchar_p
+from ctypes import *
 
 def handler(v):
     print(type(v))
@@ -14,7 +14,6 @@ if __name__ == '__main__':
         @staticmethod
         def get_free_func():
             return 'free_boxed_struct'
-
 
     class JsonStruct(Json):
         pass
@@ -51,14 +50,38 @@ if __name__ == '__main__':
         def debug_json(self, b):
             return self.__lib__.debug_json(b)
 
+        @create_abi('get_none', restype=OPTION(c_int))
+        def get_none(self):
+            return self.__lib__.get_none()[0]
+
+        @create_abi('get_some', restype=OPTION(JsonStruct), errcheck=deref)
+        def get_some(self):
+            return self.__lib__.get_some()
+
     lib = MyLib('template_test.dll')
 
-    s = lib.get_json_struct()
-    pprint(s.object)
-    lib.debug_json(s)
+    #print(lib.get_string())
+    #print(lib.get_number())
 
-    print(sys.getrefcount(s))
-    del s
+    # Create json object
+    #s = lib.get_json_struct()
+    #print(s.str_value)
+    # object dropped
+    #del s
+
+    # Create box
+    #b = lib.get_boxed_struct()
+    #print(b)
+    # box dropped
+    #del b
+
+    some = lib.get_some()
+    s = some.some
+    t = some.some
+    # Option and refference to value dropped
+    del some, t
+    # refference is maintaned
+    print(s.str_value)
 
     now = time.time()
     while(time.time() < now + 1000):

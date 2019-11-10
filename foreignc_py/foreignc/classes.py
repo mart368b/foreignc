@@ -1,6 +1,7 @@
 import json, os
-from ctypes import c_char_p, cdll, cast, c_wchar_p, c_void_p
+from ctypes import *
 from weakref import ref
+from .util import deref
 
 class BaseLib:
     def __init__(self, src: str):
@@ -30,6 +31,7 @@ class LibValue:
         return v
 
     def __del__(self):
+        print('Dropped: ' + str(self))
         if not hasattr(self, '__free__') or self.__free__ is None:
             return
         self.__free__(self.__lib__, self.__value__)
@@ -99,3 +101,37 @@ class Json(LibString, LibValue):
 
     def from_param(self):
         return c_char_p(self.__json__.encode('utf-8'))
+
+def convert_ty(ty):
+    if isinstance(ty, LibValue):
+        return ty
+    if ty is int:
+        return c_int
+    if ty is bool:
+        return c_bool
+    if ty is float:
+        return c_float
+    return ty
+
+def OPTION(ty):
+    class COption(Structure, LibValue):
+        _fields_ = [('content', POINTER(convert_ty(ty)))]
+
+        @property
+        def some(self):
+            return self.__some__
+
+        def is_none(self):
+            return self.__some__ is None
+
+        def __into__(self):
+            if self.content:
+                obj = deref(self.content)
+                obj.__lib__ = self.__lib__
+                self.__some__ = obj.__into__()
+            else:
+                self.__some__ = None
+
+            return self
+
+    return POINTER(COption)

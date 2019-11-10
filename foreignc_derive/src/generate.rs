@@ -167,7 +167,12 @@ pub fn convert_to_ptr(ty: &Box<Type>) -> DResult<Box<Type>> {
                 if let PathArguments::AngleBracketed(ref inner) = seg0.arguments {
                     if let GenericArgument::Type(ref inner_ty) = inner.args[0] {
                         let t = Box::new(inner_ty.clone());
-                        convert_to_ptr(&t)
+                        Ok(Box::new(TypePtr {
+                            star_token: Token![*](ty.span()),
+                            const_token: None,
+                            mutability: Some(Token![mut](ty.span())),
+                            elem: Box::new(parse_str(&format!("C{}", path_name)).unwrap()),
+                        }.into()))
                     } else {
                         return Err(syn::Error::new(Span::call_site(), "Result or option should not have lifetime").into());
                     }
@@ -176,7 +181,7 @@ pub fn convert_to_ptr(ty: &Box<Type>) -> DResult<Box<Type>> {
                 }
             } else {
                 if path_name.ends_with("String") | path_name.ends_with("str") {
-                    Ok(Box::new(parse_str("*const std::os::raw::c_char").unwrap()))
+                    Ok(Box::new(parse_str("*mut std::os::raw::c_char").unwrap()))
                 } else {
                     match path_name.as_str() {
                         "i8" | "i16" | "i32" | "i64" | "i128" | "isize" | "u8" | "u16"

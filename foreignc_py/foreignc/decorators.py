@@ -1,7 +1,7 @@
 from typing import *
 from functools import wraps
 from ctypes import c_char_p
-from .classes import Box, BaseLib, LibValue
+from .classes import LibValue
 from weakref import ref
 
 T = TypeVar('T')

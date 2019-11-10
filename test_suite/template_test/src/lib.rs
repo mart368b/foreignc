@@ -2,6 +2,7 @@ pub use foreignc::*;
 use serde::{Deserialize, Serialize};
 use serde_json::to_string;
 use std::fmt::Debug;
+use std::ptr::null_mut;
 
 generate_free_string!();
 
@@ -56,4 +57,17 @@ pub fn get_json_struct() -> JsonStruct {
 #[wrap_extern]
 pub fn debug_json(b: JsonStruct) {
     println!("debug: {:?}", b);
+}
+
+#[wrap_extern]
+pub fn get_none() -> Option<u32> {
+    None
+}
+
+#[wrap_extern]
+pub fn get_some() -> Option<JsonStruct> {
+    Some(JsonStruct {
+        name: "Hello".to_owned(),
+        value: "World!".to_owned()
+    })
 }

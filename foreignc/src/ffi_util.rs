@@ -1,9 +1,15 @@
 use std::cell::RefCell;
 use std::error::Error;
 use std::ffi::CStr;
-use std::os::raw::c_char;
+use std::os::raw::{c_char, c_void};
+use std::marker::PhantomData;
 
 use crate::*;
+
+#[repr(C)]
+pub struct COption {
+    content: *mut c_void
+}
 
 thread_local! {
     static LAST_ERROR: RefCell<Option<Box<dyn Error>>> = RefCell::new(None);
@@ -29,26 +35,26 @@ pub fn take_last_error() -> Option<Box<dyn Error>> {
     LAST_ERROR.with(|prev| prev.borrow_mut().take())
 }
 
-pub unsafe trait IntoFFi<PtrOut> {
-    fn into_ffi(v: Self) -> PtrOut;
+pub unsafe trait IntoFFi {
+    type PtrOut;
+    fn into_ffi(v: Self) -> Self::PtrOut;
 }
 
-pub unsafe trait FromFFi<PtrIn> {
-    fn from_ffi(v: PtrIn) -> Self;
-}
-
-pub unsafe trait FFiDefault {
-    fn default() -> Self;
+pub unsafe trait FromFFi {
+    type PtrIn;
+    fn from_ffi(v: Self::PtrIn) -> Self;
 }
 
 macro_rules! impl_direct {
     ($($T:ty),+) => {$(
-        unsafe impl IntoFFi<$T> for $T {
-            fn into_ffi(v: Self) -> $T { v }
+        unsafe impl IntoFFi for $T {
+            type PtrOut = $T;
+            fn into_ffi(v: Self) -> Self::PtrOut { v }
         }
 
-        unsafe impl FromFFi<$T> for $T {
-            fn from_ffi(v: $T) -> Self { v }
+        unsafe impl FromFFi for $T {
+            type PtrIn = $T;
+            fn from_ffi(v: Self::PtrIn) -> Self { v }
         }
     )+}
 }
@@ -65,101 +71,99 @@ impl_direct![
     i64,
     u64,
     f32,
-    f64,
-    *mut i8,
-    *const i8,
-    *mut u8,
-    *const u8
+    f64
 ];
 
-macro_rules! impl_default {
-    ($($T:ident),+) => {$(
-        unsafe impl FFiDefault for $T {
-            fn default() -> Self { std::$T::MAX }
-        }
-    )+}
-}
-
-impl_default![i8, u8, i16, u16, i32, u32, i64, u64, f32, f64];
-
-unsafe impl<T> FFiDefault for *mut T {
-    fn default() -> Self {
-        std::ptr::null_mut()
+unsafe impl<T> IntoFFi for *mut T {
+    type PtrOut = *mut T;
+    fn into_ffi(v: Self) -> Self::PtrOut {
+        v
     }
 }
 
-unsafe impl<T> FFiDefault for *const T {
-    fn default() -> Self {
-        std::ptr::null()
+unsafe impl<T> IntoFFi for *const T {
+    type PtrOut = *const T;
+    fn into_ffi(v: Self) -> Self::PtrOut {
+        v
     }
 }
 
-unsafe impl IntoFFi<*mut c_char> for &str {
-    fn into_ffi(v: Self) -> *mut c_char {
+unsafe impl IntoFFi for &str {
+    type PtrOut = *mut c_char;
+    fn into_ffi(v: Self) -> Self::PtrOut {
         IntoFFi::into_ffi(v.to_owned())
     }
 }
 
-unsafe impl<'a> FromFFi<*const c_char> for &'a str {
-    fn from_ffi(v: *const c_char) -> &'a str {
+unsafe impl<'a> FromFFi for &'a str {
+    type PtrIn = *mut c_char;
+    fn from_ffi(v: Self::PtrIn) -> &'a str {
         unsafe { CStr::from_ptr(v) }.to_str().expect("Failed to parse string as utf-8")
     }
 }
 
-unsafe impl IntoFFi<*mut c_char> for String {
-    fn into_ffi(v: Self) -> *mut c_char {
+unsafe impl IntoFFi for String {
+    type PtrOut = *mut c_char;
+    fn into_ffi(v: Self) -> Self::PtrOut {
         CString::new(v).unwrap().into_raw()
     }
 }
 
-unsafe impl<'a> FromFFi<*const c_char> for String {
-    fn from_ffi(v: *const c_char) -> String {
+unsafe impl FromFFi for String {
+    type PtrIn = *mut c_char;
+    fn from_ffi(v: Self::PtrIn) -> String {
         let s: &str = FromFFi::from_ffi(v);
         s.to_owned()
     }
 }
 
-unsafe impl<T, In> FromFFi<In> for Option<T>
+unsafe impl<T> FromFFi for Option<T>
 where
-    In: FFiDefault + Eq,
-    T: FromFFi<In>,
+    T: FromFFi,
+    <T as FromFFi>::PtrIn: From<*mut c_void>
 {
-    fn from_ffi(v: In) -> Self {
-        if v == In::default() {
-            Some(T::from_ffi(v))
-        } else {
-            None
-        }
+    type PtrIn = *mut COption;
+    fn from_ffi(v: Self::PtrIn) -> Self {
+        unsafe{
+            let ptr = v.as_mut().unwrap();
+            //ptr.content.as_mut().map(|v| T::from_ffi(<T as FromFFi>::PtrIn::from(v)))
+        };
+        None
     }
 }
 
-unsafe impl<T, Out> IntoFFi<Out> for Option<T>
+unsafe impl<T> IntoFFi for Option<T> 
 where
-    Out: FFiDefault,
-    T: IntoFFi<Out>,
+    T: IntoFFi,
 {
-    fn into_ffi(v: Self) -> Out {
-        if let Some(v) = v {
-            T::into_ffi(v)
-        } else {
-            Out::default()
-        }
+    type PtrOut = *mut COption;
+    fn into_ffi(v: Self) -> Self::PtrOut {
+        Box::leak(Box::new(COption {
+            content: if let Some(v) = v {
+                (Box::leak(Box::new(T::into_ffi(v))) as *mut <T as ffi_util::IntoFFi>::PtrOut) as *mut c_void
+            } else {
+                std::ptr::null_mut()
+            }
+        })) as *mut COption
     }
 }
 
-unsafe impl<T, Out, E> IntoFFi<Out> for Result<T, E>
+unsafe impl<T, E> IntoFFi for Result<T, E>
 where
-    Out: FFiDefault,
     E: Error + 'static,
-    T: IntoFFi<Out> + Default,
+    T: IntoFFi,
 {
-    fn into_ffi(v: Self) -> Out {
+    type PtrOut = *mut c_void;
+    fn into_ffi(v: Self) -> Self::PtrOut {
+        std::ptr::null_mut()
+    /*
         match v {
-            Ok(o) => T::into_ffi(o),
+            Ok(v) => &mut T::into_ffi(v) as *mut Out,
             Err(e) => {
                 update_last_error(e);
-                Out::default()
+                std::ptr::null_mut()
             }
         }
+        */
     }
 }
