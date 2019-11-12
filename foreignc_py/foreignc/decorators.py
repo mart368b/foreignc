@@ -1,6 +1,6 @@
 from typing import *
 from functools import wraps
-from ctypes import c_char_p
+from ctypes import POINTER
 from .classes import LibValue
 from weakref import ref
 
@@ -23,6 +23,15 @@ def create_abi(name: str, argtypes = (), restype = None, errcheck = None, func =
     is_implemented = False
     @wraps(func)
     def wrapper(self, *args, **kwargs):
+        invalid = []
+        for arg in args:
+            if isinstance(arg, LibValue):
+                err = arg.__validate__()
+                if err is not None:
+                    invalid.append(err)
+        if len(invalid) > 0:
+            raise AssertionError('Recieved invalid arguments: \n    ' + '\n '.join(map(str, invalid)))
+
         nonlocal is_implemented
         if not is_implemented:
             is_implemented = True
@@ -35,9 +44,13 @@ def create_abi(name: str, argtypes = (), restype = None, errcheck = None, func =
 
 def apply_lib_value(lib, errcheck = None):
     def inner(r, *args, **kwargs):
-        if isinstance(r, LibValue):
-            r.__lib__ = lib().__lib__
-            r = r.__into__()
+        p = r
+        while (p is not None and not isinstance(p, LibValue) and hasattr(p, '_type_')):
+            print(type(p._type_))
+            p = r.contents
+        if isinstance(p, LibValue):
+            r = p
+            r = r.__into__(lib().__lib__)
         if errcheck is not None:
             res = errcheck(r, *args, **kwargs)
             return apply_lib_value(lib, None)(res, *args, **kwargs)

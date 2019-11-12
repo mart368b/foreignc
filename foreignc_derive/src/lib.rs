@@ -244,21 +244,18 @@ pub fn derive_boxed(input: TokenStream1) -> TokenStream1 {
     };
 
     let mut t: TokenStream1 = quote!(
-        unsafe impl foreignc::IntoFFi for #name {
-            type PtrOut = *mut std::ffi::c_void;
-            fn into_ffi(v: Self) -> Self::PtrOut {
+        unsafe impl foreignc::IntoFFi< *mut std::ffi::c_void> for #name {
+            fn into_ffi(v: Self) ->  *mut std::ffi::c_void {
                 unsafe { Box::into_raw(Box::new(v)) as *mut std::ffi::c_void }
             }
         }
-        unsafe impl foreignc::FromFFi for &mut #name {
-            type PtrIn = *mut std::ffi::c_void;
-            fn from_ffi(ptr: Self::PtrIn) -> Self {
+        unsafe impl foreignc::FromFFi<*mut std::ffi::c_void> for &mut #name {
+            fn from_ffi(ptr: *mut std::ffi::c_void) -> Self {
                 unsafe { &mut *(ptr as *mut #name) }
             }
         }
-        unsafe impl foreignc::FromFFi for &#name {
-            type PtrIn = *mut std::ffi::c_void;
-            fn from_ffi(ptr: Self::PtrIn) -> Self {
+        unsafe impl foreignc::FromFFi<*mut std::ffi::c_void> for &#name {
+            fn from_ffi(ptr: *mut std::ffi::c_void) -> Self {
                 unsafe { &*(ptr as *mut #name) }
             }
         }
@@ -338,35 +335,31 @@ pub fn derive_json(input: TokenStream1) -> TokenStream1 {
     }
     
     quote!(
-        unsafe impl foreignc::FromFFi for #name{
-            type PtrIn = *mut std::ffi::c_void;
-            fn from_ffi(p: Self::PtrIn) -> Self {
-                let s = foreignc::FromFFi::from_ffi(p as *mut std::os::raw::c_char);
+        unsafe impl foreignc::FromFFi<*mut std::ffi::c_void> for #name{
+            fn from_ffi(p: *mut std::ffi::c_void) -> Self {
+                let s = foreignc::FromFFi::from_ffi(p);
                 serde_json::from_str(s).unwrap()
             }
         }
 
-        unsafe impl foreignc::IntoFFi for &mut #name {
-            type PtrOut = *mut std::ffi::c_void;
-            fn into_ffi(v: Self) -> Self::PtrOut {
+        unsafe impl foreignc::IntoFFi<*mut std::ffi::c_void> for &mut #name {
+            fn into_ffi(v: Self) -> *mut std::ffi::c_void {
                 let s = serde_json::to_string(v).unwrap();
-                foreignc::IntoFFi::into_ffi(s) as *mut std::ffi::c_void
+                foreignc::IntoFFi::into_ffi(s)
             }
         }
 
-        unsafe impl foreignc::IntoFFi for &#name {
-            type PtrOut = *mut std::ffi::c_void;
-            fn into_ffi(v: Self) -> Self::PtrOut {
+        unsafe impl foreignc::IntoFFi<*mut std::ffi::c_void> for &#name {
+            fn into_ffi(v: Self) -> *mut std::ffi::c_void {
                 let s = serde_json::to_string(v).unwrap();
-                foreignc::IntoFFi::into_ffi(s) as *mut std::ffi::c_void
+                foreignc::IntoFFi::into_ffi(s)
             }
         }
 
-        unsafe impl foreignc::IntoFFi for #name {
-            type PtrOut = *mut std::ffi::c_void;
-            fn into_ffi(v: Self) -> Self::PtrOut {
+        unsafe impl foreignc::IntoFFi<*mut std::ffi::c_void> for #name {
+            fn into_ffi(v: Self) -> *mut std::ffi::c_void {
                 let s = serde_json::to_string(&v).unwrap();
-                foreignc::IntoFFi::into_ffi(s) as *mut std::ffi::c_void
+                foreignc::IntoFFi::into_ffi(s)
             }
         }
     )

@@ -180,23 +180,19 @@ pub fn convert_to_ptr(ty: &Box<Type>) -> DResult<Box<Type>> {
                     return Err(syn::Error::new(Span::call_site(), "Expected generic arguments after Result or Option").into());
                 }
             } else {
-                if path_name.ends_with("String") | path_name.ends_with("str") {
-                    Ok(Box::new(parse_str("*mut std::os::raw::c_char").unwrap()))
-                } else {
-                    match path_name.as_str() {
-                        "i8" | "i16" | "i32" | "i64" | "i128" | "isize" | "u8" | "u16"
-                        | "u32" | "u64" | "u128" | "usize" | "f32" | "f64" | "bool"
-                        | "char" => Ok(ty.clone()),
-                        _ => Ok(Box::new(
-                            TypePtr {
-                                star_token: Token![*](ty.span()),
-                                const_token: None,
-                                mutability: Some(Token![mut](ty.span())),
-                                elem: Box::new(parse_str("std::ffi::c_void").unwrap()),
-                            }
-                            .into()),
-                        ),
-                    }
+                match path_name.as_str() {
+                    "i8" | "i16" | "i32" | "i64" | "i128" | "isize" | "u8" | "u16"
+                    | "u32" | "u64" | "u128" | "usize" | "f32" | "f64" | "bool"
+                    | "char" => Ok(ty.clone()),
+                    _ => Ok(Box::new(
+                        TypePtr {
+                            star_token: Token![*](ty.span()),
+                            const_token: None,
+                            mutability: Some(Token![mut](ty.span())),
+                            elem: Box::new(parse_str("std::ffi::c_void").unwrap()),
+                        }
+                        .into()),
+                    ),
                 }
             }
         }

@@ -65,15 +65,12 @@ pub fn get_none() -> Option<u32> {
 }
 
 #[wrap_extern]
-pub fn get_some() -> Option<JsonStruct> {
-    Some(JsonStruct {
-        name: "Hello".to_owned(),
-        value: "World!".to_owned()
-    })
+pub fn get_some() -> Option<String> {
+    Some("Some other value".to_owned())
 }
 
 #[wrap_extern]
-pub fn set_some(v: Option<JsonStruct>) {
-    println!("{:?}", v);
+pub fn set_some(v: Option<String>) {
+    println!("---{:?}", v);
 }
 

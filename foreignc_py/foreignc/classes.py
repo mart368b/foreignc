@@ -1,7 +1,6 @@
 import json, os
 from ctypes import *
 from weakref import ref
-from .util import deref
 
 class BaseLib:
     def __init__(self, src: str):
@@ -11,40 +10,53 @@ def lib_char_p_to_str(v, r, a):
     return str(v)
 
 class LibValue:
-    def __init__(self):
-        self.init()
-
-    def init(self):
-        self.__lib__ = None
-        self.__free__ = None
-        self.__value__ = None
-
-    def free_self(self, name: str):
-        value = ref(self)
-        self.__value__ = property(lambda: value())
-        self.__free__ = lambda lib, value: getattr(lib, name)(value.fget())
-
-    def __into__(self):
+    def __into__(self, lib):
+        self.__lib__ = lib
         return self
 
-    def __errcheck__(cls, v: str, *args, **kwargs):
-        return v
+    def __free__(self, lib):
+        pass
 
     def __del__(self):
-        print('Dropped: ' + str(self))
-        if not hasattr(self, '__free__') or self.__free__ is None:
-            return
-        self.__free__(self.__lib__, self.__value__)
+        if hasattr(self, '__lib__') and self.__lib__ is not None:
+            self.__free__(self.__lib__)
+            print('Dropped: ' + str(self))
+
+    def __validate__(self):
+        return None
 
 class LibString(c_char_p, LibValue):
-    def __into__(self):
-        self.free_self('free_string')
-        return self.value.decode('utf-8')
+    def __init__(self, v: str):
+        if v is not None:
+            super().__init__(v.encode('utf-8'))
+        else:
+            super().__init__(v)
+
+    def __into__(self, lib):
+        super().__into__(lib)
+        bytes = self.value
+        if bytes is not None:
+            return bytes.decode('utf-8')
+        else:
+            return None
+
+    def __free__(self, lib):
+        if self:
+            lib.free_string(self)
+        super().__free__(lib)
+
+    def from_param(self):
+        return LibString(self)
 
 class Box(c_void_p, LibValue):
-    def __into__(self):
-        self.free_self(self.get_free_func())
-        return self
+    def __into__(self, lib):
+        super().__into__(lib)
+        b = Box(addressof(self))
+        return b
+
+    def __free__(self, lib):
+        getattr(lib, self.get_free_func())(self)
+        super().__free__(lib)
 
     @staticmethod
     def get_free_func() -> str:
@@ -52,7 +64,7 @@ class Box(c_void_p, LibValue):
 
     @property
     def _as_parameter_(self):
-        return self.__value__
+        return self
 
 class Json(LibString, LibValue):
     def __init__(self, lib):
@@ -67,9 +79,8 @@ class Json(LibString, LibValue):
     def __repr__ (self):
         return super(LibValue, self).__repr__ ()
 
-    def __into__(self):
-        value = LibString.__into__(self)
-        return self.wrap_str(value, self.__lib__)
+    def __into__(self, lib):
+        return self.wrap_str(LibString.__into__(self, lib), lib)
 
     @classmethod
     def wrap_str(cls, value: str, lib: BaseLib):
@@ -113,31 +124,53 @@ def convert_ty(ty):
         return c_float
     return ty
 
-options = {}
+
+pointer_types = {}
+
+def as_pointer(key, cls):
+    if key in pointer_types:
+        return pointer_types[key]
+    else:
+        cls.ptr = POINTER(cls)
+        pointer_types[key] = cls
+        print(cls.ptr)
+        return cls
 
 def OPTION(ty):
-    if ty in options:
-        return options[ty]
-
-    class COption(Structure, LibValue):
-        _fields_ = [('content', POINTER(convert_ty(ty)))]
-
-        @property
-        def some(self):
-            return self.__some__
-
-        def is_none(self):
-            return self.__some__ is None
-
-        def __into__(self):
-            if self.content:
-                obj = deref(self.content)
-                obj.__lib__ = self.__lib__
-                self.__some__ = obj.__into__()
+    class Option(Structure, LibValue):
+        def __init__(self, v: ty):
+            super().__init__()
+            if hasattr(ty, 'from_param'):
+                self.inner_value = ty.from_param(v)
             else:
-                self.__some__ = None
+                self.inner_value = v
 
-            return self
-    tt = POINTER(COption)
-    options[ty] = tt
-    return tt
+        _fields_ = [('inner_value', ty)]
+
+        def __free__(self, lib):
+            print('free')
+            if isinstance(self.inner_value, LibValue) and not self.is_unwrapped():
+                self.inner_value.__free__(lib)
+            super().__free__(lib)
+
+        def is_unwrapped(self):
+            return hasattr(self, 'inner_unwrapped')
+
+        def unwrap(self):
+            if self.inner_value is None:
+                return None
+            if self.is_unwrapped():
+                return self.inner_unwrapped
+            if isinstance(self.inner_value, LibValue):
+                v = self.inner_value.__into__(self.__lib__)
+                self.inner_unwrapped = v
+                return v
+            else:
+                return self.inner_value
+
+        def __validate__(self):
+            if self.is_unwrapped():
+                return "Option have already been unwraped " + str(self)
+            return None
+
+    return as_pointer(ty, Option)

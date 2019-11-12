@@ -3,11 +3,6 @@ from pprint import pprint
 from foreignc import *
 from ctypes import *
 
-def handler(v):
-    print(type(v))
-    return c_char_p(v).value
-
-print(__name__)
 if __name__ == '__main__':
 
     class BoxedStruct(Box):
@@ -30,7 +25,7 @@ if __name__ == '__main__':
         def get_number(self) -> int:
             return self.__lib__.get_number()
 
-        @create_abi('parse_string', argtypes=(c_wchar_p,))
+        @create_abi('parse_string', argtypes=(LibString,))
         def parse_string(self, v: str) -> str:
             return self.__lib__.parse_string(v)
 
@@ -50,38 +45,44 @@ if __name__ == '__main__':
         def debug_json(self, b):
             return self.__lib__.debug_json(b)
 
-        @create_abi('get_none', restype=OPTION(c_int))
+        @create_abi('get_none', restype=OPTION(LibString).ptr)
         def get_none(self):
-            return self.__lib__.get_none()[0]
+            return self.__lib__.get_none()
 
-        @create_abi('get_some', restype=OPTION(JsonStruct), errcheck=deref)
+        @create_abi('get_some', restype=OPTION(LibString).ptr)
         def get_some(self):
             return self.__lib__.get_some()
 
+        @create_abi('set_some', argtypes=(OPTION(LibString).ptr,))
+        def set_some(self, v):
+            return self.__lib__.set_some(v)
+
     lib = MyLib('template_test.dll')
 
-    #print(lib.get_string())
-    #print(lib.get_number())
+    lib.parse_string("a")
+
+    print(lib.get_string())
+    print(lib.get_number())
 
     # Create json object
-    #s = lib.get_json_struct()
-    #print(s.str_value)
+    s = lib.get_json_struct()
+    print(s.str_value)
     # object dropped
-    #del s
+    del s
 
     # Create box
-    #b = lib.get_boxed_struct()
-    #print(b)
+    b = lib.get_boxed_struct()
+    print(b)
     # box dropped
-    #del b
+    del b
 
-    some = lib.get_some()
-    s = some.some
-    t = some.some
+    option = lib.get_some()
+    lib.set_some(option)
+    a = option.unwrap()
+    del a
+
+
     # Option and refference to value dropped
-    del some, t
-    # refference is maintaned
-    print(s.str_value)
 
     now = time.time()
     while(time.time() < now + 1000):
