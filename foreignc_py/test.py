@@ -54,33 +54,33 @@ if __name__ == '__main__':
             return self.__lib__.get_some()
 
         @create_abi('set_some', argtypes=(OPTION(LibString).ptr,))
-        def set_some(self, v):
+        def set_some(self, v: str):
             return self.__lib__.set_some(v)
 
     lib = MyLib('template_test.dll')
 
-    lib.parse_string("a")
+    #lib.parse_string("a")
 
-    print(lib.get_string())
-    print(lib.get_number())
+    # print(lib.get_number())
+    lib.get_number()
 
     # Create json object
-    s = lib.get_json_struct()
-    print(s.str_value)
+    #s = lib.get_json_struct()
+    #print(s.str_value)
     # object dropped
-    del s
+    #del s
 
     # Create box
-    b = lib.get_boxed_struct()
-    print(b)
+    #b = lib.get_boxed_struct()
+    #print(b)
     # box dropped
-    del b
+    #del b
 
-    option = lib.get_some()
-    lib.set_some(option)
-    a = option.unwrap()
-    del a
-
+    #option = lib.get_some()
+    #lib.set_some(option)
+    #a = option.unwrap()
+    #del a
+    #a = option.unwrap()
 
     # Option and refference to value dropped
 

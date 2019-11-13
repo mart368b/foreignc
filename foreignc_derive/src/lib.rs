@@ -180,11 +180,11 @@ pub fn generate_last_error(_item: TokenStream1) -> TokenStream1 {
     output.extend::<TokenStream1>("#[no_mangle]".parse::<TokenStream1>().expect("Failed to parse no_mangle"));
     output.extend::<TokenStream1>(
         quote!(
-            pub extern "C" fn last_error() -> *mut std::os::raw::c_char {
+            pub extern "C" fn last_error() -> *mut std::os::raw::c_void {
                 if let Some(e) = foreignc::take_last_error() {
-                    foreignc::IntoFFi::into_ffi(format!("{}", e))
+                    String::into_ffi(format!("{}", e))
                 } else {
-                    foreignc::IntoFFi::into_ffi("")
+                    String::into_ffi("".to_owned())
                 }
             }
         )
@@ -250,13 +250,21 @@ pub fn derive_boxed(input: TokenStream1) -> TokenStream1 {
             }
         }
         unsafe impl foreignc::FromFFi<*mut std::ffi::c_void> for &mut #name {
-            fn from_ffi(ptr: *mut std::ffi::c_void) -> Self {
-                unsafe { &mut *(ptr as *mut #name) }
+            fn from_ffi(ptr: *mut std::ffi::c_void) -> foreignc::ArgResult<Self> {
+                Ok(unsafe {
+                    (ptr as *mut #name)
+                        .as_mut()
+                        .ok_or_else(|| ArgumentError::from("Recieved null pointer to #name"))?
+                })
             }
         }
         unsafe impl foreignc::FromFFi<*mut std::ffi::c_void> for &#name {
-            fn from_ffi(ptr: *mut std::ffi::c_void) -> Self {
-                unsafe { &*(ptr as *mut #name) }
+            fn from_ffi(ptr: *mut std::ffi::c_void) -> foreignc::ArgResult<Self> {
+                Ok(unsafe {
+                    (ptr as *mut #name)
+                        .as_ref()
+                        .ok_or_else(|| ArgumentError::from("Recieved null pointer to #name"))?
+                })
             }
         }
     )
@@ -336,9 +344,9 @@ pub fn derive_json(input: TokenStream1) -> TokenStream1 {
     
     quote!(
         unsafe impl foreignc::FromFFi<*mut std::ffi::c_void> for #name{
-            fn from_ffi(p: *mut std::ffi::c_void) -> Self {
-                let s = foreignc::FromFFi::from_ffi(p);
-                serde_json::from_str(s).unwrap()
+            fn from_ffi(p: *mut std::ffi::c_void) -> foreignc::ArgResult<Self> {
+                let s = foreignc::FromFFi::from_ffi(p)?;
+                Ok(serde_json::from_str(s)?)
             }
         }
 

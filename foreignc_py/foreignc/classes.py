@@ -1,4 +1,4 @@
-import json, os
+import json, os, sys
 from ctypes import *
 from weakref import ref
 
@@ -26,7 +26,7 @@ class LibValue:
         return None
 
 class LibString(c_char_p, LibValue):
-    def __init__(self, v: str):
+    def __init__(self, v):
         if v is not None:
             super().__init__(v.encode('utf-8'))
         else:
@@ -45,14 +45,13 @@ class LibString(c_char_p, LibValue):
             lib.free_string(self)
         super().__free__(lib)
 
-    def from_param(self):
+    def from_param(self, **kwargs):
         return LibString(self)
 
 class Box(c_void_p, LibValue):
     def __into__(self, lib):
         super().__into__(lib)
-        b = Box(addressof(self))
-        return b
+        return self
 
     def __free__(self, lib):
         getattr(lib, self.get_free_func())(self)
@@ -71,7 +70,7 @@ class Json(LibString, LibValue):
         super(LibValue, self).__init__()
         if lib is not None:
             if hasattr(lib, '__lib__'):
-                self.__lib__ = lib.__lib__
+                self.__lib__ = lib
             else:
                 self.__lib__ = lib
         self.__json__ = ""
@@ -110,7 +109,7 @@ class Json(LibString, LibValue):
     def object(self, v: str):
         self.__json__ = json.dumps(v)
 
-    def from_param(self):
+    def from_param(self, **kwargs):
         return c_char_p(self.__json__.encode('utf-8'))
 
 def convert_ty(ty):
@@ -124,7 +123,6 @@ def convert_ty(ty):
         return c_float
     return ty
 
-
 pointer_types = {}
 
 def as_pointer(key, cls):
@@ -133,19 +131,25 @@ def as_pointer(key, cls):
     else:
         cls.ptr = POINTER(cls)
         pointer_types[key] = cls
-        print(cls.ptr)
         return cls
+
+def ARGRESULT(ty):
+    class ArgResult(Structure):
+        _fields_ = [
+            ('inner_value', POINTER(c_int)),
+            ('error', LibString)
+        ]
+    return ArgResult
 
 def OPTION(ty):
     class Option(Structure, LibValue):
+        _fields_ = [('inner_value', ty)]
         def __init__(self, v: ty):
             super().__init__()
             if hasattr(ty, 'from_param'):
-                self.inner_value = ty.from_param(v)
+                self.inner_value = ty.from_param()
             else:
                 self.inner_value = v
-
-        _fields_ = [('inner_value', ty)]
 
         def __free__(self, lib):
             print('free')
@@ -162,6 +166,7 @@ def OPTION(ty):
             if self.is_unwrapped():
                 return self.inner_unwrapped
             if isinstance(self.inner_value, LibValue):
+                self.k = self.inner_value
                 v = self.inner_value.__into__(self.__lib__)
                 self.inner_unwrapped = v
                 return v

@@ -39,14 +39,13 @@ pub fn to_extern_item_fn(
         }
     }
 
-    if let ReturnType::Type(_, ref mut ty) = item.sig.output {
-        let nty = convert_to_ptr(ty)?;
-        *ty = nty;
-        if let Type::Ptr(ref mut ptr) = &mut **ty {
-            ptr.mutability = Some(Token![mut](ptr.span()));
-            ptr.const_token = None;
-        }
+    let old_output = if let ReturnType::Type(_, ty) = item.sig.output {
+        ty.clone()
+    }else {
+        Box::new(parse_str("()").unwrap())
     };
+
+    item.sig.output = ReturnType::Type(Token![->](itemc.span().clone()), Box::new(parse_str("foreignc::CArgResult").unwrap()));
 
     Ok(ItemFn {
         block: Box::new(
@@ -54,11 +53,13 @@ pub fn to_extern_item_fn(
                 quote!(
                     {
                         unsafe {
-                            foreignc::IntoFFi::into_ffi(
-                                #caller::#method_name(#(
-                                    foreignc::FromFFi::from_ffi(#args)
-                                ),*)
-                            )
+                            || -> foreignc::ArgResult<_> {
+                                Ok(
+                                    #caller::#method_name(#(
+                                        foreignc::FromFFi::from_ffi(#args)?
+                                    ),*)
+                                )
+                            }().into()
                         }
                     }
                 )
@@ -68,11 +69,13 @@ pub fn to_extern_item_fn(
                     {
                         #itemc
                         unsafe {
-                            foreignc::IntoFFi::into_ffi(
-                                #identc(#(
-                                    foreignc::FromFFi::from_ffi(#args)
-                                ),*)
-                            )
+                            || -> foreignc::ArgResult<_> {
+                                Ok(
+                                    #identc(#(
+                                        foreignc::FromFFi::from_ffi(#args)?
+                                    ),*)
+                                )
+                            }().into()
                         }
                     }
                 )

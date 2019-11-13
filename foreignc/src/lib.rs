@@ -1,5 +1,7 @@
 mod ffi_util;
+mod error;
 
+pub use error::*;
 pub use ffi_util::*;
 pub use std::ffi::CString;
 
