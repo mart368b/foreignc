@@ -9,7 +9,6 @@ extern "C" {
     // base_test.rs
     pub fn hello_world() -> *mut c_char;
     pub fn add(a: i32, b: i32) -> i32;
-    pub fn throw_err(is_err: bool) -> *mut c_char;
     pub fn return_option(is_opt: bool) -> *mut c_char;
 
     // serde_test.rs

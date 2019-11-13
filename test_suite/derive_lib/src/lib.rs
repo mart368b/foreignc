@@ -7,4 +7,3 @@ pub use foreignc::*;
 pub use simple_error::SimpleError;
 
 generate_free_string!();
-generate_last_error!();

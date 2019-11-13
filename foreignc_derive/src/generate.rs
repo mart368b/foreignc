@@ -7,6 +7,8 @@ use quote::*;
 use std::iter::{Extend, FromIterator};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
+use std::str::FromStr;
+use core::borrow::Borrow;
 use syn::*;
 
 pub fn to_extern_item_fn(
@@ -33,19 +35,15 @@ pub fn to_extern_item_fn(
                     p.mutability = None;
                 }
                 args.push(&*t.pat);
-                let ty = convert_to_ptr(&t.ty)?;
-                t.ty = ty;
+                let ty = convert_to_ptr(t.ty.as_ref())?;
+                t.ty = Box::new(parse(ty)?);
             }
         }
     }
 
-    let old_output = if let ReturnType::Type(_, ty) = item.sig.output {
-        ty.clone()
-    }else {
-        Box::new(parse_str("()").unwrap())
+    if let ReturnType::Type(_, ref mut ty) = item.sig.output {
+        *ty = Box::new(parse(convert_to_ptr(ty.as_ref())?)?);
     };
-
-    item.sig.output = ReturnType::Type(Token![->](itemc.span().clone()), Box::new(parse_str("foreignc::CArgResult").unwrap()));
 
     Ok(ItemFn {
         block: Box::new(
@@ -53,13 +51,15 @@ pub fn to_extern_item_fn(
                 quote!(
                     {
                         unsafe {
-                            || -> foreignc::ArgResult<_> {
+                            || -> foreignc::FFiResult<_> {
                                 Ok(
-                                    #caller::#method_name(#(
-                                        foreignc::FromFFi::from_ffi(#args)?
-                                    ),*)
+                                    foreignc::IntoFFi::into_ffi(
+                                        #caller::#method_name(#(
+                                            foreignc::FromFFi::from_ffi(#args)?
+                                        ),*)
+                                    )?
                                 )
-                            }().into()
+                            }().unwrap()
                         }
                     }
                 )
@@ -69,13 +69,15 @@ pub fn to_extern_item_fn(
                     {
                         #itemc
                         unsafe {
-                            || -> foreignc::ArgResult<_> {
+                            || -> foreignc::FFiResult<_> {
                                 Ok(
-                                    #identc(#(
-                                        foreignc::FromFFi::from_ffi(#args)?
-                                    ),*)
+                                    foreignc::IntoFFi::into_ffi(
+                                        #identc(#(
+                                            foreignc::FromFFi::from_ffi(#args)?
+                                        ),*)
+                                    )?
                                 )
-                            }().into()
+                            }().unwrap()
                         }
                     }
                 )
@@ -160,54 +162,44 @@ pub fn convert_item_fn(self_ty: &Box<Type>, item_fn: ImplItemMethod) -> DResult<
     })
 }
 
-pub fn convert_to_ptr(ty: &Box<Type>) -> DResult<Box<Type>> {
-    match &**ty {
-        Type::Reference(ref r) => convert_to_ptr(&r.elem),
+pub fn convert_to_ptr<T>(ref_ty: T) -> DResult<TokenStream1> 
+where
+    T: Borrow<Type>
+{
+    let ty = ref_ty.borrow();
+    match ty {
+        Type::Reference(ref r) => convert_to_ptr(r.elem.as_ref()),
         Type::Path(ref path) => {
             let seg0 = &path.path.segments[0];
             let path_name = seg0.ident.to_string();
-            if path_name == "Result" || path_name == "Option" {
-                if let PathArguments::AngleBracketed(ref inner) = seg0.arguments {
-                    if let GenericArgument::Type(ref inner_ty) = inner.args[0] {
-                        let t = Box::new(inner_ty.clone());
-                        Ok(Box::new(TypePtr {
-                            star_token: Token![*](ty.span()),
-                            const_token: None,
-                            mutability: Some(Token![mut](ty.span())),
-                            elem: Box::new(parse_str(&format!("C{}", path_name)).unwrap()),
-                        }.into()))
-                    } else {
-                        return Err(syn::Error::new(Span::call_site(), "Result or option should not have lifetime").into());
-                    }
-                } else {
-                    return Err(syn::Error::new(Span::call_site(), "Expected generic arguments after Result or Option").into());
-                }
-            } else {
-                match path_name.as_str() {
-                    "i8" | "i16" | "i32" | "i64" | "i128" | "isize" | "u8" | "u16"
-                    | "u32" | "u64" | "u128" | "usize" | "f32" | "f64" | "bool"
-                    | "char" => Ok(ty.clone()),
-                    _ => Ok(Box::new(
-                        TypePtr {
-                            star_token: Token![*](ty.span()),
-                            const_token: None,
-                            mutability: Some(Token![mut](ty.span())),
-                            elem: Box::new(parse_str("std::ffi::c_void").unwrap()),
+            match path_name.as_str() {
+                "Result" => unimplemented!(),
+                "Option" => {
+                    if let PathArguments::AngleBracketed(ref inner) = seg0.arguments {
+                        if let GenericArgument::Type(ref inner_ty) = inner.args[0] {
+                            let inner = convert_to_ptr(inner_ty)?;
+                            let mut stream = TokenStream1::from_str("*mut ")?;
+                            stream.extend(inner);
+                            Ok(stream)
+                        } else {
+                            return Err(syn::Error::new(Span::call_site(), "Result or option should not have lifetime").into());
                         }
-                        .into()),
-                    ),
+                    } else {
+                        return Err(syn::Error::new(Span::call_site(), "Expected generic arguments after Result or Option").into());
+                    }
                 }
+                "i8" | "i16" | "i32" | "i64" | "i128" | "isize" | "u8" | "u16"
+                | "u32" | "u64" | "u128" | "usize" | "f32" | "f64" | "bool"
+                | "char" => Ok(ty.to_token_stream().into()),
+                "String" | "str" => Ok(TokenStream1::from_str("*mut std::os::raw::c_char")?),
+                _ => Ok(TokenStream1::from_str(&format!("*mut {}", path_name))?),
             }
         }
-        Type::Ptr(_) => Ok(ty.clone()),
-        _ => Ok(Box::new(
-            TypePtr {
-                star_token: Token![*](ty.span()),
-                const_token: None,
-                mutability: Some(Token![mut](ty.span())),
-                elem: ty.clone(),
-            }
-            .into()),
-        ),
+        Type::Ptr(_) => Ok(ty.to_token_stream().into()),
+        _ => {
+            let mut stream = TokenStream1::from_str("*mut ")?;
+            stream.extend::<TokenStream1>(ty.to_token_stream().into());
+            Ok(stream)
+        }
     }
 }

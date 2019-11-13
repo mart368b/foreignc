@@ -80,22 +80,6 @@ mod base_test {
     }
 
     #[test]
-    fn result_test() {
-        unsafe {
-            let ok = throw_err(false);
-            assert!(!ok.is_null());
-            assert_cstr("Ok", ok);
-            free_string(ok);
-
-            let err = throw_err(true);
-            assert!(err.is_null());
-            let lerr = last_error();
-            assert_cstr("Err", lerr);
-            free_string(lerr);
-        }
-    }
-
-    #[test]
     fn option_test() {
         unsafe {
             let some = return_option(true);

@@ -45,15 +45,15 @@ if __name__ == '__main__':
         def debug_json(self, b):
             return self.__lib__.debug_json(b)
 
-        @create_abi('get_none', restype=OPTION(LibString).ptr)
+        @create_abi('get_none', restype=OPTION(LibString))
         def get_none(self):
             return self.__lib__.get_none()
 
-        @create_abi('get_some', restype=OPTION(LibString).ptr)
+        @create_abi('get_some', restype=OPTION(str))
         def get_some(self):
             return self.__lib__.get_some()
 
-        @create_abi('set_some', argtypes=(OPTION(LibString).ptr,))
+        @create_abi('set_some', argtypes=(OPTION(str),))
         def set_some(self, v: str):
             return self.__lib__.set_some(v)
 
@@ -61,29 +61,22 @@ if __name__ == '__main__':
 
     #lib.parse_string("a")
 
-    # print(lib.get_number())
-    lib.get_number()
+    #print(lib.get_string())
+    #print(lib.get_number())
 
     # Create json object
-    #s = lib.get_json_struct()
+    s = lib.get_json_struct()
+    lib.debug_json(s)
     #print(s.str_value)
     # object dropped
     #del s
 
     # Create box
-    #b = lib.get_boxed_struct()
-    #print(b)
+    b = lib.get_boxed_struct()
+    print(b)
     # box dropped
-    #del b
+    del b
 
-    #option = lib.get_some()
-    #lib.set_some(option)
-    #a = option.unwrap()
-    #del a
-    #a = option.unwrap()
-
-    # Option and refference to value dropped
-
-    now = time.time()
-    while(time.time() < now + 1000):
-        pass
+    lib.parse_string("a")
+    a = lib.get_some()
+    lib.set_some(a)

@@ -1,8 +1,5 @@
 pub use foreignc::*;
 use serde::{Deserialize, Serialize};
-use serde_json::to_string;
-use std::fmt::Debug;
-use std::ptr::null_mut;
 
 generate_free_string!();
 
@@ -66,7 +63,7 @@ pub fn get_none() -> Option<u32> {
 
 #[wrap_extern]
 pub fn get_some() -> Option<String> {
-    Some("Some other value".to_owned())
+   Some("Some(123456)".to_owned())
 }
 
 #[wrap_extern]

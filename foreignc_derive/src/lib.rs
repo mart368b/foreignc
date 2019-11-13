@@ -143,7 +143,8 @@ pub fn generate_free_string(_item: TokenStream1) -> TokenStream1 {
     output.extend::<TokenStream1>(
         quote!(
             pub extern "C" fn free_string(ptr: *mut std::os::raw::c_char) {
-                let _ = unsafe { foreignc::CString::from_raw(ptr) };
+                let s = unsafe { foreignc::CString::from_raw(ptr) };
+                println!("Freeing string \"{:?}\"", s);
             }
         )
         .into(),
@@ -244,26 +245,26 @@ pub fn derive_boxed(input: TokenStream1) -> TokenStream1 {
     };
 
     let mut t: TokenStream1 = quote!(
-        unsafe impl foreignc::IntoFFi< *mut std::ffi::c_void> for #name {
-            fn into_ffi(v: Self) ->  *mut std::ffi::c_void {
-                unsafe { Box::into_raw(Box::new(v)) as *mut std::ffi::c_void }
+        unsafe impl foreignc::IntoFFi< *mut #name> for #name {
+            fn into_ffi(v: Self) ->  FFiResult<*mut #name> {
+                Ok(unsafe { Box::into_raw(Box::new(v)) })
             }
         }
-        unsafe impl foreignc::FromFFi<*mut std::ffi::c_void> for &mut #name {
-            fn from_ffi(ptr: *mut std::ffi::c_void) -> foreignc::ArgResult<Self> {
+        unsafe impl foreignc::FromFFi<*mut #name> for &mut #name {
+            fn from_ffi(ptr: *mut #name) -> foreignc::FFiResult<Self> {
                 Ok(unsafe {
-                    (ptr as *mut #name)
+                    ptr
                         .as_mut()
-                        .ok_or_else(|| ArgumentError::from("Recieved null pointer to #name"))?
+                        .ok_or_else(|| FFiError::from("Recieved null pointer to #name"))?
                 })
             }
         }
-        unsafe impl foreignc::FromFFi<*mut std::ffi::c_void> for &#name {
-            fn from_ffi(ptr: *mut std::ffi::c_void) -> foreignc::ArgResult<Self> {
+        unsafe impl foreignc::FromFFi<*mut #name> for &#name {
+            fn from_ffi(ptr: *mut #name) -> foreignc::FFiResult<Self> {
                 Ok(unsafe {
-                    (ptr as *mut #name)
+                    ptr
                         .as_ref()
-                        .ok_or_else(|| ArgumentError::from("Recieved null pointer to #name"))?
+                        .ok_or_else(|| FFiError::from("Recieved null pointer to #name"))?
                 })
             }
         }
@@ -275,8 +276,8 @@ pub fn derive_boxed(input: TokenStream1) -> TokenStream1 {
         item.span(),
     );
     let tt: TokenStream1 = quote!(
-        pub extern "C" fn #tt_name(ptr: *mut std::ffi::c_void) {
-            let _: Box<#name> = unsafe{ Box::from_raw(ptr as *mut #name) };
+        pub extern "C" fn #tt_name(ptr: *mut #name) {
+            let _: Box<#name> = unsafe{ Box::from_raw(ptr) };
         }
     )
     .into();
@@ -343,31 +344,31 @@ pub fn derive_json(input: TokenStream1) -> TokenStream1 {
     }
     
     quote!(
-        unsafe impl foreignc::FromFFi<*mut std::ffi::c_void> for #name{
-            fn from_ffi(p: *mut std::ffi::c_void) -> foreignc::ArgResult<Self> {
-                let s = foreignc::FromFFi::from_ffi(p)?;
+        unsafe impl foreignc::FromFFi<*mut #name> for #name{
+            fn from_ffi(p: *mut #name) -> foreignc::FFiResult<Self> {
+                let s = foreignc::FromFFi::from_ffi(p as *mut std::os::raw::c_char)?;
                 Ok(serde_json::from_str(s)?)
             }
         }
 
-        unsafe impl foreignc::IntoFFi<*mut std::ffi::c_void> for &mut #name {
-            fn into_ffi(v: Self) -> *mut std::ffi::c_void {
-                let s = serde_json::to_string(v).unwrap();
-                foreignc::IntoFFi::into_ffi(s)
+        unsafe impl foreignc::IntoFFi<*mut #name> for &mut #name {
+            fn into_ffi(v: Self) -> FFiResult<*mut #name> {
+                let s = serde_json::to_string(v)?;
+                Ok(foreignc::IntoFFi::into_ffi(s)? as *mut #name)
             }
         }
 
-        unsafe impl foreignc::IntoFFi<*mut std::ffi::c_void> for &#name {
-            fn into_ffi(v: Self) -> *mut std::ffi::c_void {
-                let s = serde_json::to_string(v).unwrap();
-                foreignc::IntoFFi::into_ffi(s)
+        unsafe impl foreignc::IntoFFi<*mut #name> for &#name {
+            fn into_ffi(v: Self) -> FFiResult<*mut #name> {
+                let s = serde_json::to_string(v)?;
+                Ok(foreignc::IntoFFi::into_ffi(s)? as *mut #name)
             }
         }
 
-        unsafe impl foreignc::IntoFFi<*mut std::ffi::c_void> for #name {
-            fn into_ffi(v: Self) -> *mut std::ffi::c_void {
-                let s = serde_json::to_string(&v).unwrap();
-                foreignc::IntoFFi::into_ffi(s)
+        unsafe impl foreignc::IntoFFi<*mut #name> for #name {
+            fn into_ffi(v: Self) -> FFiResult<*mut #name> {
+                let s = serde_json::to_string(&v)?;
+                Ok(foreignc::IntoFFi::into_ffi(s)? as *mut #name)
             }
         }
     )

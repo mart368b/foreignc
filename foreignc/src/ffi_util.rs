@@ -1,16 +1,9 @@
 use std::cell::RefCell;
 use std::error::Error;
-use crate::ArgResult;
+use crate::FFiResult;
 use std::ffi::CStr;
-use std::os::raw::{c_char, c_void};
-
+use std::os::raw::c_char;
 use crate::*;
-
-#[derive(Debug)]
-#[repr(C)]
-pub struct COption {
-    inner_value: *mut c_void
-}
 
 
 thread_local! {
@@ -38,38 +31,28 @@ pub fn take_last_error() -> Option<Box<dyn Error>> {
 }
 
 pub unsafe trait IntoFFi<PtrOut> {
-    fn into_ffi(v: Self) -> PtrOut;
+    fn into_ffi(v: Self) -> FFiResult<PtrOut>;
 }
 
 pub unsafe trait FromFFi<PtrIn> 
 where
     Self: Sized
 {
-    fn from_ffi(v: PtrIn) -> ArgResult<Self>;
+    fn from_ffi(v: PtrIn) -> FFiResult<Self>;
 }
 
 macro_rules! impl_direct {
     ($($T:ty),+) => {$(
         unsafe impl IntoFFi<$T> for $T {
-            fn into_ffi(v: Self) -> $T { v }
+            fn into_ffi(v: Self) -> FFiResult<$T> { Ok(v) }
         }
 
-        unsafe impl IntoFFi<*mut c_void> for $T {
-            fn into_ffi(v: Self) -> *mut c_void { Box::leak(Box::new( v )) as *mut $T as *mut c_void }
+        unsafe impl IntoFFi<*mut $T> for $T {
+            fn into_ffi(v: Self) -> FFiResult<*mut $T> { Ok(Box::leak(Box::new(v))) }
         }
 
         unsafe impl FromFFi<$T> for $T {
-            fn from_ffi(v: $T) -> ArgResult<$T> { Ok(v) }
-        }
-
-        unsafe impl FromFFi<*mut c_void> for $T {
-            fn from_ffi(v: *mut c_void) -> ArgResult<Self> { 
-                Ok(unsafe {
-                    *(v as *mut $T)
-                        .as_ref()
-                        .ok_or_else(|| ArgumentError::from("Recieved null pointer to primitive type"))?
-                })
-            }
+            fn from_ffi(v: $T) -> FFiResult<$T> { Ok(v) }
         }
     )+}
 }
@@ -90,90 +73,67 @@ impl_direct![
 ];
 
 unsafe impl<T> IntoFFi<*mut T> for *mut T {
-    fn into_ffi(v: Self) -> *mut T {
-        v
+    fn into_ffi(v: Self) -> FFiResult<*mut T> {
+        Ok(v)
     }
 }
 
 unsafe impl<T> IntoFFi<*const T> for *const T {
-    fn into_ffi(v: Self) -> *const T {
-        v
+    fn into_ffi(v: Self) -> FFiResult<*const T> {
+        Ok(v)
     }
 }
 
-unsafe impl IntoFFi<*mut c_void> for &str {
-    fn into_ffi(v: Self) -> *mut c_void {
+unsafe impl IntoFFi<*mut c_char> for &str {
+    fn into_ffi(v: Self) -> FFiResult<*mut c_char> {
         IntoFFi::into_ffi(v.to_owned())
     }
 }
 
-unsafe impl<'a> FromFFi<*mut c_void> for &'a str {
-    fn from_ffi(v: *mut c_void) -> ArgResult<&'a str> {
+unsafe impl<'a> FromFFi<*mut c_char> for &'a str {
+    fn from_ffi(v: *mut c_char) -> FFiResult<&'a str> {
         Ok(unsafe {
-            CStr::from_ptr(v as *mut c_char) 
+            CStr::from_ptr(v)
         }.to_str()?)
     }
 }
 
-unsafe impl IntoFFi<*mut c_void> for String {
-    fn into_ffi(v: Self) -> *mut c_void {
-        CString::new(v).unwrap().into_raw() as *mut c_void
+unsafe impl IntoFFi<*mut c_char> for String {
+    fn into_ffi(v: Self) -> FFiResult<*mut c_char> {
+        Ok(CString::new(v)?.into_raw())
     }
 }
 
-unsafe impl FromFFi<*mut c_void> for String {
-    fn from_ffi(v: *mut c_void) -> ArgResult<String> {
+unsafe impl FromFFi<*mut c_char> for String {
+    fn from_ffi(v: *mut c_char) -> FFiResult<String> {
         let s: &str = FromFFi::from_ffi(v)?;
         Ok(s.to_owned())
     }
 }
 
-unsafe impl<T> FromFFi<*mut COption> for Option<T>
+unsafe impl<T, U> FromFFi<*mut U> for Option<T>
 where
-    T: FromFFi<*mut c_void> + std::fmt::Debug,
+    T: FromFFi<U> + std::fmt::Debug,
 {
-    fn from_ffi(v: *mut COption) -> ArgResult<Self> {
-        if let Some(copt) = unsafe{v.as_ref()} {
-            if !copt.inner_value.is_null() {
-                Ok(Some(T::from_ffi(copt.inner_value)?))
-            }else {
-                Ok(None)
+    fn from_ffi(v: *mut U) -> FFiResult<Self> {
+        unsafe{
+            match v.as_mut() {
+                Some(ptr) => Ok(Some(T::from_ffi(std::ptr::read(ptr))?)),
+                None => Ok(None)
             }
-        }else {
-            Ok(None)
         }
     }
 }
 
-unsafe impl<T> IntoFFi<*mut c_void> for Option<T> 
+unsafe impl<T, U> IntoFFi<*mut U> for Option<T> 
 where
-    T: IntoFFi<*mut c_void>,
+    T: IntoFFi<U>,
 {
-    fn into_ffi(v: Self) -> *mut c_void {
-        Box::leak(Box::new(COption {
-            inner_value: if let Some(v) = v {
-                T::into_ffi(v)
-            } else {
-                std::ptr::null_mut()
-            }
-        })) as *mut COption as *mut c_void
-    }
-}
-
-unsafe impl<T, E> IntoFFi<*mut c_void> for Result<T, E>
-where
-    E: Error + 'static
-{
-    fn into_ffi(v: Self) -> *mut c_void {
-        std::ptr::null_mut()
-    /*
-        match v {
-            Ok(v) => &mut T::into_ffi(v) as *mut Out,
-            Err(e) => {
-                update_last_error(e);
-                std::ptr::null_mut()
-            }
-        }
-        */
+    fn into_ffi(v: Self) -> FFiResult<*mut U> {
+        Ok(if let Some(v) = v {
+            Box::leak(Box::new(T::into_ffi(v)?))
+        } else {
+            std::ptr::null_mut()
+        })
     }
 }

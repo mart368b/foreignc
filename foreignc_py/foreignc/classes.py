@@ -1,6 +1,6 @@
 import json, os, sys
 from ctypes import *
-from weakref import ref
+import inspect as ins
 
 class BaseLib:
     def __init__(self, src: str):
@@ -18,19 +18,16 @@ class LibValue:
         pass
 
     def __del__(self):
+        #print('Dropping: ' + str(self))
         if hasattr(self, '__lib__') and self.__lib__ is not None:
             self.__free__(self.__lib__)
-            print('Dropped: ' + str(self))
+            #print('Dropped: ' + str(self))
 
     def __validate__(self):
         return None
 
 class LibString(c_char_p, LibValue):
-    def __init__(self, v):
-        if v is not None:
-            super().__init__(v.encode('utf-8'))
-        else:
-            super().__init__(v)
+    _type_ = c_char_p._type_
 
     def __into__(self, lib):
         super().__into__(lib)
@@ -40,15 +37,27 @@ class LibString(c_char_p, LibValue):
         else:
             return None
 
+    @classmethod
+    def wrap_str(cls, value: str):
+        s = cls()
+        s.value = value.encode('utf-8')
+        return s
+
     def __free__(self, lib):
         if self:
             lib.free_string(self)
         super().__free__(lib)
 
-    def from_param(self, **kwargs):
-        return LibString(self)
+    def from_param(v):
+        if isinstance(v, str):
+            return LibString.wrap_str(v)
+        if isinstance(v, LibString):
+            return v
+        raise ArgumentError('Wrong argument expected a string got ' + str(type(v)))
 
 class Box(c_void_p, LibValue):
+    _type_ = c_void_p._type_
+
     def __into__(self, lib):
         super().__into__(lib)
         return self
@@ -65,32 +74,43 @@ class Box(c_void_p, LibValue):
     def _as_parameter_(self):
         return self
 
+    def from_param(v):
+        print(v)
+        print(isinstance(v, Box))
+        if isinstance(v, Box):
+            return v
+        raise ArgumentError('Expected box ' + str(type(v)))
+
 class Json(LibString, LibValue):
     def __init__(self, lib):
         super(LibValue, self).__init__()
         if lib is not None:
-            if hasattr(lib, '__lib__'):
-                self.__lib__ = lib
-            else:
-                self.__lib__ = lib
+            self.__lib__ = lib
         self.__json__ = ""
 
     def __repr__ (self):
         return super(LibValue, self).__repr__ ()
 
+    def __free__(self, lib):
+        LibString.__free__(self, lib)
+
     def __into__(self, lib):
-        return self.wrap_str(LibString.__into__(self, lib), lib)
+        super().__into__(lib)
+        self.str_value = LibString.__into__(self, lib)
+        return self
 
     @classmethod
-    def wrap_str(cls, value: str, lib: BaseLib):
+    def wrap_str(cls, value: str, lib):
         s = cls(lib)
         s.str_value = value
+        s.value = value.encode('utf-8')
         return s
 
     @classmethod
-    def wrap_obj(cls, obj, lib: BaseLib):
+    def wrap_obj(cls, obj, lib):
         s = cls(lib)
         s.object = obj
+        s.value = s.str_value.encode('utf-8')
         return s
 
     @property
@@ -109,73 +129,74 @@ class Json(LibString, LibValue):
     def object(self, v: str):
         self.__json__ = json.dumps(v)
 
-    def from_param(self, **kwargs):
-        return c_char_p(self.__json__.encode('utf-8'))
+    def from_param(v):
+        if isinstance(v, str):
+            return Json.wrap_str(v, None)
+        if isinstance(v, LibString):
+            return Json.wrap_str(v.str_value, None)
+        if isinstance(v, Json):
+            return v
+        return Json.wrap_obj(v, None)
 
-def convert_ty(ty):
-    if isinstance(ty, LibValue):
-        return ty
-    if ty is int:
+def to_c_type(ty):
+    if ty == int:
         return c_int
-    if ty is bool:
-        return c_bool
-    if ty is float:
+    if ty == float:
         return c_float
+    if ty == bool:
+        return c_bool
+    if ty == str:
+        return LibString
+    if isinstance(ty, LibValue):
+        return LibValue
     return ty
 
-pointer_types = {}
+options = {}
+def OPTION(tt):
+    if tt in options:
+        return options[tt]
 
-def as_pointer(key, cls):
-    if key in pointer_types:
-        return pointer_types[key]
-    else:
-        cls.ptr = POINTER(cls)
-        pointer_types[key] = cls
-        return cls
+    ty = to_c_type(tt)
+    class Option(POINTER(ty), LibValue):
+        _type_ = ty
 
-def ARGRESULT(ty):
-    class ArgResult(Structure):
-        _fields_ = [
-            ('inner_value', POINTER(c_int)),
-            ('error', LibString)
-        ]
-    return ArgResult
-
-def OPTION(ty):
-    class Option(Structure, LibValue):
-        _fields_ = [('inner_value', ty)]
-        def __init__(self, v: ty):
+        def __init__(self, v):
             super().__init__()
             if hasattr(ty, 'from_param'):
-                self.inner_value = ty.from_param()
+                self.contents = ty.from_param(v)
             else:
-                self.inner_value = v
+                self.contents = v
 
         def __free__(self, lib):
-            print('free')
-            if isinstance(self.inner_value, LibValue) and not self.is_unwrapped():
-                self.inner_value.__free__(lib)
-            super().__free__(lib)
+            if isinstance(self.value, LibValue):
+                self.value.__free__(lib)
 
-        def is_unwrapped(self):
-            return hasattr(self, 'inner_unwrapped')
+        def __into__(self, lib):
+            super().__into__(lib)
+            if self:
+                content = self.contents
+                if isinstance(content, LibValue):
+                    self.value = self.contents.__into__(lib)
+                else:
+                    self.value = content.value if hasattr(content, 'value') else content
+                return self
+            else:
+                self.value = None
+                return self
+
+        def from_param(v):
+            if isinstance(v, Option):
+                return Option(v.value)
+            if v is None:
+                return Option(None)
+            if isinstance(v, ty):
+                return Option(v)
+            if hasattr(ty, 'from_param'):
+                return Option(v)
+            raise FFiError('Expected ' + str(ty) + ' but got ' + str(type(v)))
 
         def unwrap(self):
-            if self.inner_value is None:
-                return None
-            if self.is_unwrapped():
-                return self.inner_unwrapped
-            if isinstance(self.inner_value, LibValue):
-                self.k = self.inner_value
-                v = self.inner_value.__into__(self.__lib__)
-                self.inner_unwrapped = v
-                return v
-            else:
-                return self.inner_value
+           return self.value
 
-        def __validate__(self):
-            if self.is_unwrapped():
-                return "Option have already been unwraped " + str(self)
-            return None
-
-    return as_pointer(ty, Option)
+    options[tt] = Option
+    return Option
