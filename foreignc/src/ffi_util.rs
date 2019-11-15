@@ -1,34 +1,8 @@
-use std::cell::RefCell;
-use std::error::Error;
 use crate::FFiResult;
 use std::ffi::CStr;
 use std::os::raw::c_char;
 use crate::*;
 
-
-thread_local! {
-    static LAST_ERROR: RefCell<Option<Box<dyn Error>>> = RefCell::new(None);
-}
-
-pub fn update_last_error<E: Error + 'static>(err: E) {
-    {
-        // Print a pseudo-backtrace for this error, following back each error's
-        // cause until we reach the root error.
-        let mut cause = err.source();
-        while let Some(parent_err) = cause {
-            cause = parent_err.source();
-        }
-    }
-
-    LAST_ERROR.with(|prev| {
-        *prev.borrow_mut() = Some(Box::new(err));
-    });
-}
-
-/// Retrieve the most recent error, clearing it in the process.
-pub fn take_last_error() -> Option<Box<dyn Error>> {
-    LAST_ERROR.with(|prev| prev.borrow_mut().take())
-}
 
 pub unsafe trait IntoFFi<PtrOut> {
     fn into_ffi(v: Self) -> FFiResult<PtrOut>;
@@ -135,5 +109,30 @@ where
         } else {
             std::ptr::null_mut()
         })
+    }
+}
+
+#[repr(C)]
+pub struct CResult<T, E>{
+    pub ok: *mut T,
+    pub err: *mut E
+}
+
+unsafe impl<T, E, U, V> IntoFFi<*mut CResult<U, V>> for Result<T, E> 
+where
+    T: IntoFFi<U>,
+    E: IntoFFi<V>,
+{
+    fn into_ffi(v: Self) -> FFiResult<*mut CResult<U, V>> {
+        Ok(Box::leak(Box::new(match v {
+            Ok(v) => CResult {
+                ok: IntoFFi::into_ffi(Some(v))?,
+                err: std::ptr::null_mut()
+            },
+            Err(v) => CResult {
+                ok: std::ptr::null_mut(),
+                err: IntoFFi::into_ffi(Some(v))?
+            }
+        })))
     }
 }

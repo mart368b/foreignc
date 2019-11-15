@@ -1,38 +1,26 @@
 from foreignc import *
 
-class ffi_templateLib(BaseLib):
-    def __init__(self, src: str):
-        super().__init__('ffi_templateLib', src)
-        self.get_boxed_struct = self.lib.get_boxed_struct
-        self.get_boxed_struct.argtypes = ()
-        self.get_boxed_struct.restypes = BoxedStruct
-        
-        self.get_number = self.lib.get_number
-        self.get_number.argtypes = ()
-        self.get_number.restypes = int
-        
-        self.get_string = self.lib.get_string
-        self.get_string.argtypes = ()
-        self.get_string.restypes = lib_char_p('ffi_templateLib')
-        
-        self.parse_string = self.lib.parse_string
-        self.parse_string.argtypes = (c_char_p)
-        self.parse_string.restypes = None
-        
-        self.free_boxed_struct = self.lib.free_boxed_struct
-        self.free_boxed_struct.argtypes = (c_void)
-        self.free_boxed_struct.restypes = None
-        
-        self.free_string = self.lib.free_string
-        self.free_string.argtypes = (c_char)
-        self.free_string.restypes = None
-        
-
 
 class BoxedStruct(Box):
-    def __init__(self, value):
-        super().__init__(value, ffi_templateLib.free_boxed_struct, 'ffi_templateLib')
+    @staticmethod
+    def get_free_func():
+        return 'free_boxed_struct'
+
+    @create_abi('err_boxed_struct', argtypes=(BoxedStruct, int, bool, LibString,), restype=RESULT(int, int))
+    def err(self, a: int, b: bool, c: str) -> str:
+        return self.__lib__.err(self, a, b, c)
 
 class JsonStruct(Json):
-    def __init__(self, value):
-        super().__init__(value)
+    pass
+
+class FfiTemplateLib(BaseLib):
+    def __init__(self, src: str):
+        super().__init__(src)
+
+    @create_abi('free_boxed_struct', argtypes=(free_boxed_struct,))
+    def free_boxed_struct(self, ptr: free_boxed_struct) -> str:
+        return self.__lib__.free_boxed_struct(ptr)
+
+    @create_abi('free_string', argtypes=(LibString,))
+    def free_string(self, ptr: str) -> str:
+        return self.__lib__.free_string(ptr)

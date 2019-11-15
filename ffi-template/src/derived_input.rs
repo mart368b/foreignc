@@ -46,6 +46,7 @@ pub fn get_dir_path(name: String) -> TResult<PathBuf> {
 
 pub fn get_file_path(name: String, body: &str) -> TResult<PathBuf> {
     let mut s = DefaultHasher::new();
+    name.hash(&mut s);
     body.hash(&mut s);
     let h = s.finish();
     let pkg = std::env::var("CARGO_PKG_NAME")?;
@@ -112,6 +113,9 @@ impl RustContext {
                 self.structs[i].methods.append(&mut s.methods);
                 if let Some(destructor) = s.destructor {
                     self.structs[i].destructor = Some(destructor);
+                }
+                if self.structs[i].ty == StructTypes::RawPointer {
+                    self.structs[i].ty = s.ty;
                 }
             },
             Err(i) => self.structs.insert(i, s)

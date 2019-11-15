@@ -5,12 +5,12 @@ fn initialize() -> RustContext {
     RustContext {
         funcs: vec![
             RustFunction {
-                name: "SomeFunc".to_owned(),
-                extern_name: "ExternName".to_owned(),
+                name: "ASomeFunc".to_owned(),
+                extern_name: "AExternName".to_owned(),
                 inputs: vec![
                     RustArgument {
                         name: "a".to_owned(),
-                        ty: RustTypes::String
+                        ty: RustTypes::Option(Box::new(RustTypes::String))
                     },
                     RustArgument {
                         name: "b".to_owned(),
@@ -20,8 +20,8 @@ fn initialize() -> RustContext {
                 output: Some(RustTypes::String)
             },
             RustFunction {
-                name: "SomeFunc".to_owned(),
-                extern_name: "ExternName".to_owned(),
+                name: "BSomeFunc".to_owned(),
+                extern_name: "BExternName".to_owned(),
                 inputs: vec![
                     RustArgument {
                         name: "a".to_owned(),
@@ -43,6 +43,6 @@ fn initialize() -> RustContext {
 #[test]
 fn build() -> TResult<()> {
     let con = initialize();
-    con.generate_python_api(Path::new("test.py"))?;
+    con.generate_python_api("test.py", None)?;
     Ok(())
 }

@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 generate_free_string!();
 
-#[derive(Boxed, Debug)]
+#[derive(Boxed, Serialize, Deserialize, Debug)]
 pub struct BoxedStruct{
     name: String,
     value: String
@@ -15,6 +15,14 @@ pub struct JsonStruct{
     value: String
 }
 
+#[wrap_extern]
+impl BoxedStruct {
+    pub fn err(&mut self, a: u32, b: bool, c: String) -> Result<u32, u32> {
+        Ok(0)
+    }
+}
+
+/*
 #[wrap_extern]
 pub fn get_string() -> &'static str {
     "Hello World!"
@@ -70,4 +78,4 @@ pub fn get_some() -> Option<String> {
 pub fn set_some(v: Option<String>) {
     println!("---{:?}", v);
 }
-
+*/

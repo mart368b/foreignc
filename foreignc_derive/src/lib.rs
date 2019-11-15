@@ -5,7 +5,7 @@ mod error;
 mod generate;
 
 use generate::*;
-use foreignc_err::throw_err;
+use foreignc_util::{throw_err, to_snake_case};
 
 use proc_macro::TokenStream as TokenStream1;
 use proc_macro2::TokenStream as TokenStream2;
@@ -159,7 +159,7 @@ pub fn generate_free_string(_item: TokenStream1) -> TokenStream1 {
                 extern_name: "free_string".to_owned(),
                 inputs: vec![RustArgument {
                     name: "ptr".to_owned(),
-                    ty: RustTypes::Ptr("c_char".to_owned()),
+                    ty: RustTypes::String,
                 }],
                 output: None,
             },
@@ -195,7 +195,7 @@ pub fn generate_last_error(_item: TokenStream1) -> TokenStream1 {
     #[cfg(feature = "template")]
     {
         let take = RustFreeFunction {
-            ty: RustTypes::Result(Box::new(RustTypes::String)),
+            ty: RustTypes::Result(Box::new(RustTypes::String), Box::new(RustTypes::String)),
             func: RustFunction {
                 name: "free_string".to_owned(),
                 extern_name: "free_string".to_owned(),
@@ -216,24 +216,6 @@ pub fn generate_last_error(_item: TokenStream1) -> TokenStream1 {
     output
 }
 
-fn to_snake_case(s: String) -> String {
-    let mut ss = String::new();
-    let mut require_space = false;
-    for c in s.chars() {
-        if c.is_uppercase() && require_space {
-            ss.push('_');
-        }
-        if c.is_lowercase() {
-            require_space = true;
-        } else if !c.is_alphabetic() && !c.is_numeric() {
-            require_space = false;
-        }
-        ss.push(c.to_lowercase().next().unwrap());
-    }
-
-    ss
-}
-
 #[proc_macro_derive(Boxed)]
 pub fn derive_boxed(input: TokenStream1) -> TokenStream1 {
     let item: Item = throw_err!(parse(input));
@@ -245,7 +227,7 @@ pub fn derive_boxed(input: TokenStream1) -> TokenStream1 {
     };
 
     let mut t: TokenStream1 = quote!(
-        unsafe impl foreignc::IntoFFi< *mut #name> for #name {
+        unsafe impl foreignc::IntoFFi<*mut #name> for #name {
             fn into_ffi(v: Self) ->  FFiResult<*mut #name> {
                 Ok(unsafe { Box::into_raw(Box::new(v)) })
             }
@@ -291,7 +273,7 @@ pub fn derive_boxed(input: TokenStream1) -> TokenStream1 {
                 extern_name: tt_name.to_string(),
                 inputs: vec![RustArgument {
                     name: "ptr".to_owned(),
-                    ty: RustTypes::Ptr("c_void".to_owned()),
+                    ty: RustTypes::Ptr(tt_name.to_string()),
                 }],
                 output: None,
             },
@@ -305,7 +287,8 @@ pub fn derive_boxed(input: TokenStream1) -> TokenStream1 {
         let s = RustStructure{
             self_ty: name.to_string(),
             methods: Vec::new(),
-            destructor: Some(tt_name.to_string())
+            destructor: Some(tt_name.to_string()),
+            ty: StructTypes::Boxed
         };
         throw_err!(
             add_to_path(s)
@@ -335,7 +318,8 @@ pub fn derive_json(input: TokenStream1) -> TokenStream1 {
         let s = RustStructure{
             self_ty: name.to_string(),
             methods: Vec::new(),
-            destructor: Some("free_string".to_owned())
+            destructor: Some("free_string".to_owned()),
+            ty: StructTypes::Json
         };
         throw_err!(
             add_to_path(s)

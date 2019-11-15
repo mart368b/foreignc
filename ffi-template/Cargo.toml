@@ -6,14 +6,9 @@ edition = "2018"
 build = "build.rs"
 include = ["templates/**/*"]
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
 tera = "0.11.20"
-foreignc_err = {path = "../foreignc_err"}
+foreignc_util = {path = "../foreignc_util"}
 serde = { version = "1.0.102", features = ["derive"] }
 serde_json = "1.0.41"
 rand = "0.7.2"
-
-[features]
-derived_input = []

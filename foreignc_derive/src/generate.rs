@@ -1,7 +1,7 @@
 use super::*;
 
 use super::error::*;
-
+use foreignc_util::to_snake_case;
 use core::convert::From;
 use quote::*;
 use std::iter::{Extend, FromIterator};
@@ -42,8 +42,13 @@ pub fn to_extern_item_fn(
     }
 
     if let ReturnType::Type(_, ref mut ty) = item.sig.output {
-        *ty = Box::new(parse(convert_to_ptr(ty.as_ref())?)?);
-    };
+        let mut out = TokenStream1::from_str("*mut foreignc::CResult<")?;
+        out.extend(convert_to_ptr(ty.as_ref())?);
+        out.extend(TokenStream1::from_str(", std::os::raw::c_char>"));
+        *ty = Box::new(parse(out)?);
+    }else {
+        item.sig.output = ReturnType::Type(Token![->](itemc.span().clone()), parse_str("*mut foreignc::CResult<(), std::os::raw::c_char>")?);
+    }
 
     Ok(ItemFn {
         block: Box::new(
@@ -51,7 +56,7 @@ pub fn to_extern_item_fn(
                 quote!(
                     {
                         unsafe {
-                            || -> foreignc::FFiResult<_> {
+                            let v = || -> foreignc::FFiResult<_> {
                                 Ok(
                                     foreignc::IntoFFi::into_ffi(
                                         #caller::#method_name(#(
@@ -59,7 +64,8 @@ pub fn to_extern_item_fn(
                                         ),*)
                                     )?
                                 )
-                            }().unwrap()
+                            }();
+                            foreignc::FFiResultWrap::from(v).into()
                         }
                     }
                 )
@@ -69,7 +75,7 @@ pub fn to_extern_item_fn(
                     {
                         #itemc
                         unsafe {
-                            || -> foreignc::FFiResult<_> {
+                            let v = || -> foreignc::FFiResult<_> {
                                 Ok(
                                     foreignc::IntoFFi::into_ffi(
                                         #identc(#(
@@ -77,7 +83,8 @@ pub fn to_extern_item_fn(
                                         ),*)
                                     )?
                                 )
-                            }().unwrap()
+                            }();
+                            foreignc::FFiResultWrap::from(v).into()
                         }
                     }
                 )
@@ -173,7 +180,28 @@ where
             let seg0 = &path.path.segments[0];
             let path_name = seg0.ident.to_string();
             match path_name.as_str() {
-                "Result" => unimplemented!(),
+                "Result" => {
+                    if let PathArguments::AngleBracketed(ref inner) = seg0.arguments {
+                        if inner.args.len() != 2 {
+                            return Err(syn::Error::new(inner.span().clone(), "Result should not have lifetime").into());
+                        }
+                        let s0 = if let GenericArgument::Type(ref inner_ty) = inner.args[0] {
+                            convert_to_ptr(inner_ty)?
+                        } else {
+                            return Err(syn::Error::new(inner.args[0].span().clone(), "Result should not have lifetime").into());
+                        };
+
+                        let s1 = if let GenericArgument::Type(ref inner_ty) = inner.args[1] {
+                            convert_to_ptr(inner_ty)?
+                        } else {
+                            return Err(syn::Error::new(inner.args[1].span().clone(), "Result should not have lifetime").into());
+                        };
+                        
+                        Ok(TokenStream1::from_str(&format!("*mut CResult<*mut {}, *mut {}>", s0.to_string(), s1.to_string()))?)
+                    } else {
+                        return Err(syn::Error::new(seg0.arguments.span().clone(), "Expected generic arguments after Result or Option").into());
+                    }
+                }
                 "Option" => {
                     if let PathArguments::AngleBracketed(ref inner) = seg0.arguments {
                         if let GenericArgument::Type(ref inner_ty) = inner.args[0] {
@@ -182,10 +210,10 @@ where
                             stream.extend(inner);
                             Ok(stream)
                         } else {
-                            return Err(syn::Error::new(Span::call_site(), "Result or option should not have lifetime").into());
+                            return Err(syn::Error::new(inner.args[1].span().clone(), "Option should not have lifetime").into());
                         }
                     } else {
-                        return Err(syn::Error::new(Span::call_site(), "Expected generic arguments after Result or Option").into());
+                        return Err(syn::Error::new(seg0.arguments.span().clone(), "Expected generic arguments after Result or Option").into());
                     }
                 }
                 "i8" | "i16" | "i32" | "i64" | "i128" | "isize" | "u8" | "u16"

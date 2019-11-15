@@ -1,5 +1,4 @@
 use serde::{Deserialize, Serialize};
-use std::fmt::Debug;
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub enum MetaType {
@@ -32,12 +31,25 @@ pub struct RustFreeFunction<> {
     pub func: RustFunction,
 }
 
+#[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
+pub enum StructTypes {
+    Boxed,
+    Json,
+    RawPointer
+}
+
+impl Default for StructTypes {
+    fn default() -> StructTypes {
+        StructTypes::RawPointer
+    }
+}
 
 #[derive(Default, Deserialize, Serialize, Debug, Clone)]
 pub struct RustStructure {
     pub self_ty: String,
     pub methods: Vec<RustFunction>,
-    pub destructor: Option<String>
+    pub destructor: Option<String>,
+    pub ty: StructTypes
 }
 
 #[derive(Default, Deserialize, Serialize, Debug, Clone)]
@@ -64,21 +76,9 @@ pub struct RustArgument {
 pub enum RustTypes {
     Ptr(String),
     Option(Box<RustTypes>),
-    Result(Box<RustTypes>),
+    Result(Box<RustTypes>, Box<RustTypes>),
     Primitive(String),
     String,
-}
-
-impl RustTypes {
-    pub fn get_root(&self) -> &RustTypes {
-        match self {
-            RustTypes::Ptr(_) => self,
-            RustTypes::Option(s) => RustTypes::get_root(s.as_ref().get_root()),
-            RustTypes::Result(s) => RustTypes::get_root(s.as_ref().get_root()),
-            RustTypes::Primitive(_) => self,
-            RustTypes::String => self,
-        }
-    }
 }
 
 impl AsRef<RustTypes> for RustTypes {
@@ -98,7 +98,7 @@ impl ToString for RustTypes {
         match self {
             RustTypes::Ptr(s) => format!("*mut {}", s),
             RustTypes::Option(s) => format!("Option<{}>", s.to_string()),
-            RustTypes::Result(s) => format!("Result<{}>", s.to_string()),
+            RustTypes::Result(ok, err) => format!("Result<{}, {}>", ok.to_string(), err.to_string()),
             RustTypes::Primitive(s) => s.clone(),
             RustTypes::String => "String".to_owned(),
         }

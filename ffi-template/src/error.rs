@@ -1,5 +1,5 @@
 use std::*;
-use foreignc_err::impl_from;
+use foreignc_util::impl_from;
 
 #[derive(Debug)]
 pub enum TemplateError {

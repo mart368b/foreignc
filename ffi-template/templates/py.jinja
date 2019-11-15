@@ -1,34 +1,101 @@
 from foreignc import *
 
-class {{ class_name }}(BaseLib):
-    def __init__(self, src: str):
-        super().__init__('{{ class_name }}', src)
-        {%- for abi in abis %}
-        self.{{ abi.name }} = self.lib.{{ abi.name }}
-        self.{{ abi.name }}.argtypes = (
-            {%- for arg in abi.inputs -%}
-                {{ arg }}
-                {%- if not loop.last -%}, {% endif %}
-            {%- endfor -%}
-        )
-        {% if abi.output -%}
-            self.{{ abi.name }}.restypes = {{ abi.output | replace(from="--class_name--", to=class_name) }}
-        {%- else -%}
-            self.{{ abi.name }}.restypes = None
-        {%- endif %}
-        {% endfor %}
-
-{% for struct in structs %}
-{%- if not struct.destructor -%}
-    {% set class = "Raw" %}
-{%- elif struct.destructor == "free_string" -%}
-    {% set class = "Json" %}
-{%- else -%}
-    {% set class = "Box" %}
+{% for box in boxes %}
+class {{ box.self_ty }}(Box):
+{%- if box.destructor %}
+    @staticmethod
+    def get_free_func():
+        return '{{ box.destructor }}'
 {%- endif %}
-class {{ struct.self_ty }}({{ class }}):
-    def __init__(self, value):
-        super().__init__(value 
-            {%- if class != "Json" -%}, {{ class_name }}.{{ struct.destructor }}, '{{ class_name }}' {%- endif -%} 
+{% for abi in box.methods %}
+    @create_abi('{{ abi.extern_name }}'
+        {%- if abi.extern_inputs | length != 0 -%}
+            , argtypes=(
+                {%- for lib_value in abi.extern_inputs -%}
+                    {%- if not loop.first -%}, {% endif -%}
+                    {{ lib_value }}
+                {%- endfor -%}
+            ,)
+        {%- endif -%}
+        {%- if abi.extern_output -%}
+            , restype={{ abi.extern_output }}
+        {%- endif -%}
+    )
+    def {{ abi.sig_name }}(self
+        {%- for sig_value in abi.sig_inputs -%}
+            , {{ sig_value }}
+        {%- endfor -%}
+    ) -> str:
+        return self.__lib__.{{ abi.sig_name }}(
+            {%- for arg in abi.arg_list -%}
+            {%- if loop.first == false -%}, {% endif -%}
+            {{ arg }}
+            {%- endfor -%}           
+        )
+{% endfor %}
+{%- endfor -%}
+
+{% for json in jsons %}
+class {{ json.self_ty }}(Json):
+{%- if json.methods | length == 0 %}
+    pass
+
+{% endif %}
+{%- for abi in json.methods %}
+    @create_abi('{{ abi.extern_name }}'
+        {%- if abi.extern_inputs | length != 0 -%}
+            , argtypes=(
+                {%- for lib_value in abi.extern_inputs -%}
+                    {%- if not loop.first -%}, {% endif -%}
+                    {{ lib_value }}
+                {%- endfor -%}
+            ,)
+        {%- endif -%}
+        {%- if abi.extern_output -%}
+            , restype={{ abi.extern_output }}
+        {%- endif -%}
+    )
+    def {{ abi.sig_name }}(self
+        {%- for sig_value in abi.sig_inputs -%}
+            , {{ sig_value }}
+        {%- endfor -%}
+    ) -> str:
+        return self.__lib__.{{ abi.sig_name }}(
+            {%- for arg in abi.arg_list -%}
+            {%- if loop.first == false -%}, {% endif -%}
+            {{ arg }}
+            {%- endfor -%}            
+        )
+
+{% endfor %}
+{%- endfor -%}
+
+class {{ lib_name }}(BaseLib):
+    def __init__(self, src: str):
+        super().__init__(src)
+{% for abi in abis %}
+    @create_abi('{{ abi.extern_name }}'
+        {%- if abi.extern_inputs | length != 0 -%}
+            , argtypes=(
+                {%- for lib_value in abi.extern_inputs -%}
+                    {%- if not loop.first -%}, {% endif -%}
+                    {{ lib_value }}
+                {%- endfor -%}
+            ,)
+        {%- endif -%}
+        {%- if abi.extern_output -%}
+            , restype={{ abi.extern_output }}
+        {%- endif -%}
+    )
+    def {{ abi.sig_name }}(self
+        {%- for sig_value in abi.sig_inputs -%}
+            , {{ sig_value }}
+        {%- endfor -%}
+    ) -> str:
+        return self.__lib__.{{ abi.sig_name }}(
+            {%- for arg in abi.arg_list -%}
+            {%- if loop.first == false -%}, {% endif -%}
+            {{ arg }}
+            {%- endfor -%}
         )
 {% endfor %}

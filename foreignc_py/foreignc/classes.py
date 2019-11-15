@@ -1,6 +1,9 @@
 import json, os, sys
 from ctypes import *
-import inspect as ins
+
+class FFiError(ConnectionError):
+    def __init__(self, message):
+        super().__init__(message)
 
 class BaseLib:
     def __init__(self, src: str):
@@ -151,6 +154,72 @@ def to_c_type(ty):
         return LibValue
     return ty
 
+def read_pointer(ptr, lib):
+    if ptr and ptr != 1:
+        content = ptr.contents
+        if isinstance(content, LibValue):
+            return content.__into__(lib)
+        else:
+            return content.value if hasattr(content, 'value') else content
+    else:
+        return None
+
+results = {}
+def RESULT(tt, terr):
+    if (tt, terr) in options:
+        return options[(tt, terr)]
+
+    ty = to_c_type(tt)
+    err = to_c_type(terr)
+
+    class CResult(Structure):
+        _fields_ = [
+            ("ok", POINTER(ty)),
+            ("err", POINTER(err))
+        ]
+
+    class Result(POINTER(CResult), LibValue):
+        _type_ = CResult
+
+        def __free__(self, lib):
+            if isinstance(self.ok, LibValue):
+                self.ok.__free__(lib)
+            if isinstance(self.err, LibValue):
+                self.err.__free__(lib)
+
+        def __into__(self, lib):
+            super().__into__(lib)
+            if self:
+                result = self.contents
+                self.ok = read_pointer(result.ok, self.__lib__)
+                self.err = read_pointer(result.err, self.__lib__)
+            else:
+                raise FFiError("Recieved null pointer as base result")
+            return self
+
+        def from_param(v):
+            raise NotImplementedError('Errors as arguments are not supported')
+
+        def get_ok(self):
+            return self.ok
+
+        def get_err(self):
+            return self.err
+
+        def is_ok(self):
+            return self.ok is not None
+
+        def is_err(self):
+            return self.err is not None
+
+        def consume(self):
+            if self.err is not None:
+                raise FFiError(str(self.err))
+            return self.ok
+
+    results[(tt, terr)] = Result
+    return Result
+
 options = {}
 def OPTION(tt):
     if tt in options:
@@ -173,16 +242,8 @@ def OPTION(tt):
 
         def __into__(self, lib):
             super().__into__(lib)
-            if self:
-                content = self.contents
-                if isinstance(content, LibValue):
-                    self.value = self.contents.__into__(lib)
-                else:
-                    self.value = content.value if hasattr(content, 'value') else content
-                return self
-            else:
-                self.value = None
-                return self
+            self.value = read_pointer(self, self.__lib__)
+            return self
 
         def from_param(v):
             if isinstance(v, Option):
@@ -193,7 +254,7 @@ def OPTION(tt):
                 return Option(v)
             if hasattr(ty, 'from_param'):
                 return Option(v)
-            raise FFiError('Expected ' + str(ty) + ' but got ' + str(type(v)))
+            raise ArgumentError('Expected ' + str(ty) + ' but got ' + str(type(v)))
 
         def unwrap(self):
            return self.value

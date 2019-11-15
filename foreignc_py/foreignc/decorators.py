@@ -1,7 +1,6 @@
 from typing import *
 from functools import wraps
-from ctypes import POINTER
-from .classes import LibValue
+from .classes import LibValue, RESULT
 from weakref import ref
 
 T = TypeVar('T')
@@ -37,9 +36,9 @@ def create_abi(name: str, argtypes = (), restype = None, errcheck = None, func =
             is_implemented = True
             abi_func = getattr(self.__lib__, name)
             abi_func.argtypes = argtypes
-            abi_func.restype = restype
+            abi_func.restype = RESULT(restype, str)
             abi_func.errcheck = apply_lib_value(ref(self), errcheck)
-        return func(self, *args, **kwargs)
+        return func(self, *args, **kwargs).consume()
     return wrapper
 
 def apply_lib_value(lib, errcheck = None):

@@ -1,7 +1,7 @@
 use proc_macro2::TokenStream;
 #[cfg(feature = "template")]
 use ffi_template::TemplateError;
-use foreignc_err::impl_from;
+use foreignc_util::impl_from;
 
 #[derive(Debug)]
 pub enum DeriveError {
