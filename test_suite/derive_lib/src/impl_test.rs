@@ -5,7 +5,7 @@ pub struct BoxedStruct {
     acc: u32,
 }
 
-#[wrap_extern]
+#[with_abi]
 impl BoxedStruct {
     pub fn new() -> BoxedStruct {
         BoxedStruct { acc: 0 }

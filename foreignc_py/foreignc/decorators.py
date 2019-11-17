@@ -1,6 +1,6 @@
 from typing import *
 from functools import wraps
-from .classes import LibValue, RESULT
+from .classes import LibValue, RESULT, FFiError
 from weakref import ref
 
 T = TypeVar('T')
@@ -21,7 +21,13 @@ def create_abi(name: str, argtypes = (), restype = None, errcheck = None, func =
         raise TypeError('Expected tuple got ' + str(type(argtypes)))
     is_implemented = False
     @wraps(func)
-    def wrapper(self, *args, **kwargs):
+    def wrapper(*args, **kwargs):
+        if func.__code__.co_varnames[0] == 'self':
+            lib = args[0].__lib__
+        elif func.__code__.co_varnames[0] == 'lib':
+            lib = args[0].__lib__
+        else:
+            raise FFiError("Missing self or library reference for function " + str(func))
         invalid = []
         for arg in args:
             if isinstance(arg, LibValue):
@@ -34,17 +40,17 @@ def create_abi(name: str, argtypes = (), restype = None, errcheck = None, func =
         nonlocal is_implemented
         if not is_implemented:
             is_implemented = True
-            abi_func = getattr(self.__lib__, name)
+            abi_func = getattr(lib, name)
             abi_func.argtypes = argtypes
             abi_func.restype = RESULT(restype, str)
-            abi_func.errcheck = apply_lib_value(ref(self), errcheck)
-        return func(self, *args, **kwargs).consume()
+            abi_func.errcheck = apply_lib_value(lib, errcheck)
+        return func(*args, **kwargs).consume()
     return wrapper
 
 def apply_lib_value(lib, errcheck = None):
     def inner(r, *args, **kwargs):
         if isinstance(r, LibValue):
-            r = r.__into__(lib().__lib__)
+            r = r.__into__(lib)
         if errcheck is not None:
             res = errcheck(r, *args, **kwargs)
             return apply_lib_value(lib, None)(res, *args, **kwargs)

@@ -15,12 +15,16 @@ pub fn to_extern_item_fn(
     mut item: ItemFn,
     implm: Option<(&Type, Ident)>,
 ) -> DResult<ItemFn> {
-    let mut itemc = item.clone();
-    let identc = Ident::new(&format!("{}_ffi", itemc.sig.ident), item.sig.ident.span());
-    itemc.sig.ident = identc.clone();
+    // Find the called functions name
+    let item_path_str = if let Some((caller, method_name)) = implm {
+        format!("{}::{}", caller.to_token_stream(), method_name)
+    }else {
+        format!("{}", item.sig.ident)
+    };
+    let item_path: Path = parse_str(&item_path_str)?;
 
+    // Handle arguments
     let mut args: Vec<&Pat> = Vec::new();
-
     for ty in &mut item.sig.inputs {
         match ty {
             // Convert self type
@@ -29,8 +33,6 @@ pub fn to_extern_item_fn(
             }
             // Use arg type
             FnArg::Typed(ref mut t) => {
-                // [some_name]: [&|&mut] [some_type]
-                // Convert arguments from [&|&mut] to [*const|*mut]
                 if let Pat::Ident(ref mut p) = &mut *t.pat {
                     p.mutability = None;
                 }
@@ -41,57 +43,33 @@ pub fn to_extern_item_fn(
         }
     }
 
+    // Handle return type
     if let ReturnType::Type(_, ref mut ty) = item.sig.output {
         let mut out = TokenStream1::from_str("*mut foreignc::CResult<")?;
         out.extend(convert_to_ptr(ty.as_ref())?);
         out.extend(TokenStream1::from_str(", std::os::raw::c_char>"));
         *ty = Box::new(parse(out)?);
     }else {
-        item.sig.output = ReturnType::Type(Token![->](itemc.span().clone()), parse_str("*mut foreignc::CResult<(), std::os::raw::c_char>")?);
+        item.sig.output = ReturnType::Type(Token![->](Span::call_site()), parse_str("*mut foreignc::CResult<(), std::os::raw::c_char>")?);
     }
 
     Ok(ItemFn {
-        block: Box::new(
-            parse(if let Some((caller, method_name)) = implm {
-                quote!(
-                    {
-                        unsafe {
-                            let v = || -> foreignc::FFiResult<_> {
-                                Ok(
-                                    foreignc::IntoFFi::into_ffi(
-                                        #caller::#method_name(#(
-                                            foreignc::FromFFi::from_ffi(#args)?
-                                        ),*)
-                                    )?
-                                )
-                            }();
-                            foreignc::FFiResultWrap::from(v).into()
-                        }
-                    }
-                )
-                .into()
-            } else {
-                quote!(
-                    {
-                        #itemc
-                        unsafe {
-                            let v = || -> foreignc::FFiResult<_> {
-                                Ok(
-                                    foreignc::IntoFFi::into_ffi(
-                                        #identc(#(
-                                            foreignc::FromFFi::from_ffi(#args)?
-                                        ),*)
-                                    )?
-                                )
-                            }();
-                            foreignc::FFiResultWrap::from(v).into()
-                        }
-                    }
-                )
-                .into()
-            })?
-            ,
-        ),
+        // Create the code block
+        block: Box::new(parse(quote!({
+            unsafe {
+                let v = || -> foreignc::FFiResult<_> {
+                    Ok(
+                        foreignc::IntoFFi::into_ffi(
+                            #item_path(#(
+                                foreignc::FromFFi::from_ffi(#args)?
+                            ),*)
+                        )?
+                    )
+                }();
+                foreignc::FFiResultWrap::from(v).into()
+            }
+        }).into())?),
+        // Create the signature
         vis: VisPublic {
             pub_token: Token![pub](item.sig.span()),
         }

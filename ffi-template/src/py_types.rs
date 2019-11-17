@@ -26,6 +26,7 @@ pub struct FunctionABI {
     extern_output: Option<String>,
 
     arg_list: Vec<String>,
+    is_method: bool,
 
     sig_name: String,
     sig_inputs: Vec<String>,
@@ -45,6 +46,7 @@ impl FunctionABI {
             extern_output: py_output.clone().map(|output| output.get_extern()),
             
             arg_list: f.inputs.iter().map(|arg| arg.name.replace("this", "self")).collect(),
+            is_method: f.inputs.iter().any(|arg| arg.name == "this"),
 
             sig_name: f.name.to_owned(),
             sig_inputs: f.inputs

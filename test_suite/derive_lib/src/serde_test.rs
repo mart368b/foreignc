@@ -6,7 +6,7 @@ pub struct SerdeStruct {
     value: Vec<String>,
 }
 
-#[wrap_extern]
+#[with_abi]
 pub fn new_serde_struct() -> SerdeStruct {
     SerdeStruct {
         value: vec!["Hello".to_owned(), "World!".to_owned()],

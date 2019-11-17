@@ -19,14 +19,25 @@ impl RustContext {
         RustContext::default()
     }
 
-    fn create_context(&self, lib_name: Option<String>) -> Context {
+    fn create_context(&self, lib_name: Option<String>) -> TResult<Context> {
+        let return_string = self.funcs.iter().any(|f| f.output.as_ref().map_or(false, |t| t.is_string()))
+            || self.structs.iter().any(|s| s.ty == StructTypes::Json)
+            || self.structs.iter().any(|s| s.methods.iter().any(|f| f.output.as_ref().map_or(false, |t| t.is_string())));
+        if return_string {
+            let has_free_string = self.free_funcs.iter().any(|f| &f.func.name == "free_string")
+            || self.funcs.iter().any(|f| &f.name == "free_string");
+            if !has_free_string {
+                return Err(TemplateError::MessageErr("Returned string without methods of deletion please add free_string a function or use foreignc_derive::generate_free_string to generate it".to_owned()))
+            }
+        }
         
         let mut structs = self.structs.clone();
         
-        let mut abi: Vec<FunctionABI> = self.funcs.iter().map(|a| FunctionABI::from_rust(a, &mut structs)).collect();
-        let mut free_abi: Vec<FunctionABI> = self.free_funcs.iter().map(|a| FunctionABI::from_rust(&a.func, &mut structs)).collect();
-        abi.append(&mut free_abi);
-
+        let abi: Vec<FunctionABI> = self.funcs.iter().map(|a| FunctionABI::from_rust(a, &mut structs)).collect();
+        
+        // Currently we dont add the free function explicitly
+        //let mut free_abi: Vec<FunctionABI> = self.free_funcs.iter().map(|a| FunctionABI::from_rust(&a.func, &mut structs)).collect();
+        //abi.append(&mut free_abi);
 
         let mut added = Vec::new();
         while structs.len() != 0 {
@@ -50,14 +61,14 @@ impl RustContext {
             format!("{}Lib", to_camel_case(env!("CARGO_PKG_NAME").to_owned()))
         };
         ncon.insert("lib_name", &final_name);
-        ncon
+        Ok(ncon)
     }
 
     pub fn generate_python_api<P>(&self, path: P, lib_name: Option<String>) -> TResult<()> 
     where
         P: AsRef<OsStr> + Sized
     {
-        let context = self.create_context(lib_name);
+        let context = self.create_context(lib_name)?;
         let content = Tera::one_off(
             &include_str!("../templates/py.jinja"), 
             &context,

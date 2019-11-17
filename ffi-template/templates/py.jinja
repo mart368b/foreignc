@@ -21,12 +21,16 @@ class {{ box.self_ty }}(Box):
             , restype={{ abi.extern_output }}
         {%- endif -%}
     )
-    def {{ abi.sig_name }}(self
+    def {{ abi.sig_name }}(
+        {%- if abi.is_method -%}self{%- else -%}lib: BaseLib{%- endif -%}
         {%- for sig_value in abi.sig_inputs -%}
             , {{ sig_value }}
         {%- endfor -%}
-    ) -> str:
-        return self.__lib__.{{ abi.sig_name }}(
+    ) {% if abi.sig_output -%}
+        -> {{ abi.sig_output }}
+    {%- endif -%}:
+        return {% if abi.is_method -%}self{%- else -%}lib{%- endif -%}
+        .__lib__.{{ abi.sig_name }}(
             {%- for arg in abi.arg_list -%}
             {%- if loop.first == false -%}, {% endif -%}
             {{ arg }}
@@ -39,9 +43,8 @@ class {{ box.self_ty }}(Box):
 class {{ json.self_ty }}(Json):
 {%- if json.methods | length == 0 %}
     pass
-
-{% endif %}
-{%- for abi in json.methods %}
+{%- else -%}
+{% for abi in json.methods %}
     @create_abi('{{ abi.extern_name }}'
         {%- if abi.extern_inputs | length != 0 -%}
             , argtypes=(
@@ -55,20 +58,24 @@ class {{ json.self_ty }}(Json):
             , restype={{ abi.extern_output }}
         {%- endif -%}
     )
-    def {{ abi.sig_name }}(self
+    def {{ abi.sig_name }}(
+        {%- if abi.is_method -%}self{%- else -%}lib: BaseLib{%- endif -%}
         {%- for sig_value in abi.sig_inputs -%}
             , {{ sig_value }}
         {%- endfor -%}
-    ) -> str:
-        return self.__lib__.{{ abi.sig_name }}(
+    ) {% if abi.sig_output -%}
+        -> {{ abi.sig_output }}
+    {%- endif -%}:
+        return {% if abi.is_method -%}self{%- else -%}lib{%- endif -%}
+        .__lib__.{{ abi.sig_name }}(
             {%- for arg in abi.arg_list -%}
             {%- if loop.first == false -%}, {% endif -%}
             {{ arg }}
-            {%- endfor -%}            
+            {%- endfor -%}           
         )
-
 {% endfor %}
-{%- endfor -%}
+{%- endif %}
+{% endfor -%}
 
 class {{ lib_name }}(BaseLib):
     def __init__(self, src: str):
@@ -91,7 +98,9 @@ class {{ lib_name }}(BaseLib):
         {%- for sig_value in abi.sig_inputs -%}
             , {{ sig_value }}
         {%- endfor -%}
-    ) -> str:
+    ) {% if abi.sig_output -%}
+        -> {{ abi.sig_output }}
+    {%- endif -%}:
         return self.__lib__.{{ abi.sig_name }}(
             {%- for arg in abi.arg_list -%}
             {%- if loop.first == false -%}, {% endif -%}

@@ -56,11 +56,11 @@ impl Parse for Items {
 }
 
 #[proc_macro_attribute]
-pub fn wrap_extern(_attr: TokenStream1, input: TokenStream1) -> TokenStream1 {
+pub fn with_abi(_attr: TokenStream1, input: TokenStream1) -> TokenStream1 {
     let items: Items = throw_err!(parse(input));
 
     let ffi_impl = if let Some(item) = items.items {
-        convert_items(item)
+        convert_item(item)
     } else if let Some(impls) = items.impls {
         let mut cimpls: TokenStream1 = impls.clone().into_token_stream().into();
         cimpls.extend::<TokenStream1>(convert_impls(impls));
@@ -73,7 +73,7 @@ pub fn wrap_extern(_attr: TokenStream1, input: TokenStream1) -> TokenStream1 {
 }
 
 fn convert_impls(impls: ItemImpl) -> TokenStream1 {
-    let _span = impls.span().clone();
+    let span = impls.span().clone();
     let mut implementation = TokenStream1::new();
 
     #[cfg(feature = "template")]
@@ -96,10 +96,9 @@ fn convert_impls(impls: ItemImpl) -> TokenStream1 {
                 implement.methods.push(throw_err!(f));
             }
             
-            let extern_item_fn = to_extern_item_fn(item, Some((&*impls.self_ty, method_name)));
-            let extern_stream: TokenStream2 = throw_err!(extern_item_fn).into_token_stream();
+            let extern_item_fn = throw_err!(to_extern_item_fn(item, Some((&*impls.self_ty, method_name))));
             implementation.extend::<TokenStream1>("#[no_mangle]".parse::<TokenStream1>().expect("Failed to parse no_mangle"));
-            implementation.extend::<TokenStream1>(extern_stream.into());
+            implementation.extend::<TokenStream1>(extern_item_fn.into_token_stream().into());
         }
     }
 
@@ -107,14 +106,14 @@ fn convert_impls(impls: ItemImpl) -> TokenStream1 {
     {
         throw_err!(
             add_to_path(implement)
-                .map_err(|e| syn::Error::new(_span, &e))
+                .map_err(|e| syn::Error::new(span, &e))
         );
     }
 
-    implementation
+    implementation.into()
 }
 
-fn convert_items(item: ItemFn) -> TokenStream1 {
+fn convert_item(item: ItemFn) -> TokenStream1 {
     let _span = item.span().clone();
     let mut implementation = TokenStream1::new();
 
@@ -127,8 +126,10 @@ fn convert_items(item: ItemFn) -> TokenStream1 {
         );
     }
 
-    let extern_item_fn = to_extern_item_fn(item, None);
-    let extern_stream: TokenStream2 = throw_err!(extern_item_fn).into_token_stream();
+    implementation.extend::<TokenStream1>(item.to_token_stream().into());
+    let mut extern_item_fn = throw_err!(to_extern_item_fn(item, None));
+    extern_item_fn.sig.ident = Ident::new(&format!("{}_ffi", extern_item_fn.sig.ident), extern_item_fn.sig.ident.span().clone());
+    let extern_stream: TokenStream2 = extern_item_fn.into_token_stream();
     implementation.extend::<TokenStream1>("#[no_mangle]".parse::<TokenStream1>().expect("Failed to parse no_mangle"));
     implementation.extend::<TokenStream1>(extern_stream.into());
 

@@ -6,7 +6,8 @@ pub enum TemplateError {
     IoErr(io::Error),
     VarErr(env::VarError),
     SerdeErr(serde_json::error::Error),
-    TeraErr(tera::Error)
+    TeraErr(tera::Error),
+    MessageErr(String),
 }
 
 impl_from! {
@@ -22,7 +23,8 @@ impl fmt::Display for TemplateError {
             TemplateError::IoErr(e) => e.fmt(f),
             TemplateError::VarErr(e) => e.fmt(f),
             TemplateError::SerdeErr(e) => e.fmt(f),
-            TemplateError::TeraErr(e) => e.fmt(f)
+            TemplateError::TeraErr(e) => e.fmt(f),
+            TemplateError::MessageErr(msg) => msg.fmt(f)
         }
     }
 }

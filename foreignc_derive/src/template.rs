@@ -34,7 +34,7 @@ pub fn to_rust_func(
         f.extern_name = item.sig.ident.to_string();
     } else {
         f.name = item.sig.ident.to_string();
-        f.extern_name = f.name.clone();
+        f.extern_name = format!("{}_ffi", item.sig.ident);
     }
 
     if let ReturnType::Type(_, ref ty) = item.sig.output {

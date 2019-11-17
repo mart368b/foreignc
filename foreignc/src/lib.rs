@@ -7,7 +7,7 @@ pub use std::ffi::CString;
 pub use ffi_template::*;
 
 pub use foreignc_derive::{
-    generate_free_string, generate_last_error, wrap_extern, Boxed, Json,
+    generate_free_string, generate_last_error, with_abi, Boxed, Json,
 };
 
 #[allow(unused_imports)]
