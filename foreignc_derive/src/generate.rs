@@ -56,18 +56,17 @@ pub fn to_extern_item_fn(
     Ok(ItemFn {
         // Create the code block
         block: Box::new(parse(quote!({
-            unsafe {
-                let v = || -> foreignc::FFiResult<_> {
-                    Ok(
-                        foreignc::IntoFFi::into_ffi(
-                            #item_path(#(
-                                foreignc::FromFFi::from_ffi(#args)?
-                            ),*)
-                        )?
-                    )
-                }();
-                foreignc::FFiResultWrap::from(v).into()
-            }
+            let v = std::panic::catch_unwind(|| -> foreignc::FFiResult<_> {
+                Ok(
+                    foreignc::IntoFFi::into_ffi(
+                        #item_path(#(
+                            foreignc::FromFFi::from_ffi(#args)?
+                        ),*)
+                    )?
+                )
+            })
+            .unwrap_or_else(|e| Err(foreignc::FFiError{content: format!("{:?}", e)}));
+            foreignc::FFiResultWrap::from(v).into()
         }).into())?),
         // Create the signature
         vis: VisPublic {

@@ -1,6 +1,8 @@
+from __future__ import annotations
+from pydoc import locate
 from foreignc import *
 
-{% for box in boxes %}
+{% for box in boxes -%}
 class {{ box.self_ty }}(Box):
 {%- if box.destructor %}
     @staticmethod
@@ -13,12 +15,12 @@ class {{ box.self_ty }}(Box):
             , argtypes=(
                 {%- for lib_value in abi.extern_inputs -%}
                     {%- if not loop.first -%}, {% endif -%}
-                    {{ lib_value }}
+                    locate('{{ lib_value }}')
                 {%- endfor -%}
             ,)
         {%- endif -%}
         {%- if abi.extern_output -%}
-            , restype={{ abi.extern_output }}
+            , restype=locate('{{ abi.extern_output }}')
         {%- endif -%}
     )
     def {{ abi.sig_name }}(
@@ -30,7 +32,7 @@ class {{ box.self_ty }}(Box):
         -> {{ abi.sig_output }}
     {%- endif -%}:
         return {% if abi.is_method -%}self{%- else -%}lib{%- endif -%}
-        .__lib__.{{ abi.sig_name }}(
+        .__lib__.{{ abi.extern_name }}(
             {%- for arg in abi.arg_list -%}
             {%- if loop.first == false -%}, {% endif -%}
             {{ arg }}
@@ -50,12 +52,12 @@ class {{ json.self_ty }}(Json):
             , argtypes=(
                 {%- for lib_value in abi.extern_inputs -%}
                     {%- if not loop.first -%}, {% endif -%}
-                    {{ lib_value }}
+                    locate('{{ lib_value }}')
                 {%- endfor -%}
             ,)
         {%- endif -%}
         {%- if abi.extern_output -%}
-            , restype={{ abi.extern_output }}
+            , restype=locate('{{ abi.extern_output }}')
         {%- endif -%}
     )
     def {{ abi.sig_name }}(
@@ -67,7 +69,7 @@ class {{ json.self_ty }}(Json):
         -> {{ abi.sig_output }}
     {%- endif -%}:
         return {% if abi.is_method -%}self{%- else -%}lib{%- endif -%}
-        .__lib__.{{ abi.sig_name }}(
+        .__lib__.{{ abi.extern_name }}(
             {%- for arg in abi.arg_list -%}
             {%- if loop.first == false -%}, {% endif -%}
             {{ arg }}
@@ -101,7 +103,7 @@ class {{ lib_name }}(BaseLib):
     ) {% if abi.sig_output -%}
         -> {{ abi.sig_output }}
     {%- endif -%}:
-        return self.__lib__.{{ abi.sig_name }}(
+        return self.__lib__.{{ abi.extern_name }}(
             {%- for arg in abi.arg_list -%}
             {%- if loop.first == false -%}, {% endif -%}
             {{ arg }}

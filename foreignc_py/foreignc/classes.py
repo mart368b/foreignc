@@ -213,8 +213,9 @@ def RESULT(tt, terr):
             return self.err is not None
 
         def consume(self):
+            print(self)
             if self.err is not None:
-                raise FFiError(str(self.err))
+                raise FFiError(self.err)
             return self.ok
 
     results[(tt, terr)] = Result

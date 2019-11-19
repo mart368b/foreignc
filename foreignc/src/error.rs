@@ -33,7 +33,7 @@ impl<T> Into<*mut CResult<T, c_char>> for FFiResultWrap<T> {
 
 #[derive(Debug)]
 pub struct FFiError {
-    content: String
+    pub content: String
 }
 
 impl<T> From<T> for FFiError 
