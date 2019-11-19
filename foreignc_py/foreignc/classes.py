@@ -9,119 +9,95 @@ class BaseLib:
     def __init__(self, src: str):
         self.__lib__ = cdll.LoadLibrary(os.path.abspath(src))
 
-def lib_char_p_to_str(v, r, a):
-    return str(v)
-
 class LibValue:
-    def __into__(self, lib):
+    def __init__(self, lib):
         self.__lib__ = lib
-        return self
+
+    @staticmethod
+    def __ty__():
+        return None
+
+    @classmethod
+    def __from_result__(cls, res, lib):
+        return None
 
     def __free__(self, lib):
         pass
 
     def __del__(self):
-        #print('Dropping: ' + str(self))
         if hasattr(self, '__lib__') and self.__lib__ is not None:
             self.__free__(self.__lib__)
-            #print('Dropped: ' + str(self))
 
     def __validate__(self):
         return None
 
-class LibString(c_char_p, LibValue):
-    _type_ = c_char_p._type_
+class LibString(LibValue):
+    @staticmethod
+    def __ty__():
+        return c_char_p
 
-    def __into__(self, lib):
-        super().__into__(lib)
-        bytes = self.value
+    @classmethod
+    def __from_result__(cls, res, lib):
+        bytes = res.value
         if bytes is not None:
+            lib.free_string(res)
             return bytes.decode('utf-8')
         else:
             return None
 
-    @classmethod
-    def wrap_str(cls, value: str):
-        s = cls()
-        s.value = value.encode('utf-8')
-        return s
-
-    def __free__(self, lib):
-        if self:
-            lib.free_string(self)
-        super().__free__(lib)
-
     def from_param(v):
         if isinstance(v, str):
-            return LibString.wrap_str(v)
-        if isinstance(v, LibString):
-            return v
+            return c_char_p(v.encode('utf-8'))
         raise ArgumentError('Wrong argument expected a string got ' + str(type(v)))
 
-class Box(c_void_p, LibValue):
-    _type_ = c_void_p._type_
-
-    def __into__(self, lib):
-        super().__into__(lib)
-        return self
-
-    def __free__(self, lib):
-        getattr(lib, self.get_free_func())(self)
-        super().__free__(lib)
+class Box(LibValue):
+    def __init__(self, res, lib):
+        super().__init__(lib)
+        self.__value__ = res
 
     @staticmethod
-    def get_free_func() -> str:
-        raise NotImplementedError()
+    def __ty__():
+        return c_void_p
 
-    @property
-    def _as_parameter_(self):
-        return self
-
-    def from_param(v):
-        print(v)
-        print(isinstance(v, Box))
-        if isinstance(v, Box):
-            return v
-        raise ArgumentError('Expected box ' + str(type(v)))
-
-class Json(LibString, LibValue):
-    def __init__(self, lib):
-        super(LibValue, self).__init__()
-        if lib is not None:
-            self.__lib__ = lib
-        self.__json__ = ""
-
-    def __repr__ (self):
-        return super(LibValue, self).__repr__ ()
+    @classmethod
+    def __from_result__(cls, res, lib):
+        return cls(res, lib)
 
     def __free__(self, lib):
-        LibString.__free__(self, lib)
+        print(self)
+        getattr(lib, self.__free_func__())(self.__value__)
 
-    def __into__(self, lib):
-        super().__into__(lib)
-        self.str_value = LibString.__into__(self, lib)
-        return self
+    @staticmethod
+    def __free_func__() -> str:
+        raise NotImplementedError()
+
+    def from_param(v):
+        if isinstance(v, Box):
+            return v.__value__
+        raise ArgumentError('Expected box ' + str(type(v)))
+
+class Json(LibValue):
+    def __init__(self, res, lib):
+        super().__init__(lib)
+        if isinstance(res, str):
+            self.__json__ = res
+        else:
+            self.__json__ = json.dumps(res)
+
+    @staticmethod
+    def __ty__():
+        return LibString.__ty__()
 
     @classmethod
-    def wrap_str(cls, value: str, lib):
-        s = cls(lib)
-        s.str_value = value
-        s.value = value.encode('utf-8')
-        return s
-
-    @classmethod
-    def wrap_obj(cls, obj, lib):
-        s = cls(lib)
-        s.object = obj
-        s.value = s.str_value.encode('utf-8')
-        return s
+    def __from_result__(cls, res, lib):
+        return cls(LibString.__from_result__(res, lib), lib)
 
     @property
-    def str_value(self):
+    def value(self):
         return self.__json__
 
-    @str_value.setter
-    def str_value(self, s: str):
+    @value.setter
+    def value(self, s: str):
         self.__json__ = s
 
     @property
@@ -133,13 +109,10 @@ class Json(LibString, LibValue):
         self.__json__ = json.dumps(v)
 
     def from_param(v):
-        if isinstance(v, str):
-            return Json.wrap_str(v, None)
-        if isinstance(v, LibString):
-            return Json.wrap_str(v.str_value, None)
         if isinstance(v, Json):
-            return v
-        return Json.wrap_obj(v, None)
+            return c_char_p(v.value.encode('utf-8'))
+        raise ArgumentError('Expected Json ' + str(type(v)))
+
 
 def to_c_type(ty):
     if ty == int:
@@ -154,111 +127,127 @@ def to_c_type(ty):
         return LibValue
     return ty
 
-def read_pointer(ptr, lib):
+def read_pointer(cls, ptr, lib):
     if ptr and ptr != 1:
         content = ptr.contents
-        if isinstance(content, LibValue):
-            return content.__into__(lib)
+        if hasattr(cls, '__from_result__'):
+            return cls.__from_result__(content, lib)
         else:
-            return content.value if hasattr(content, 'value') else content
+            return content
     else:
         return None
 
 results = {}
-def RESULT(tt, terr):
-    if (tt, terr) in options:
-        return options[(tt, terr)]
+def RESULT(T, E):
+    if (T, E) in options:
+        return options[(T, E)]
 
-    ty = to_c_type(tt)
-    err = to_c_type(terr)
+    if T is None or E is None:
+        raise ArgumentError("Result types cannot be none T: " + str(T) + " E: " + str(E))
+    ok_ty = to_c_type(T)
+    err_ty = to_c_type(E)
 
     class CResult(Structure):
         _fields_ = [
-            ("ok", POINTER(ty)),
-            ("err", POINTER(err))
+            ("ok", POINTER(ok_ty if not hasattr(ok_ty, '__ty__') else ok_ty.__ty__())),
+            ("err", POINTER(err_ty if not hasattr(err_ty, '__ty__') else err_ty.__ty__()))
         ]
 
-    class Result(POINTER(CResult), LibValue):
-        _type_ = CResult
+    class Result(LibValue):
+        def __init__(self, ok, err, lib):
+            super().__init__(lib)
+            self.ok = ok
+            self.err = err
 
-        def __free__(self, lib):
-            if isinstance(self.ok, LibValue):
-                self.ok.__free__(lib)
-            if isinstance(self.err, LibValue):
-                self.err.__free__(lib)
+        @staticmethod
+        def __ty__():
+            return POINTER(CResult)
 
-        def __into__(self, lib):
-            super().__into__(lib)
-            if self:
-                result = self.contents
-                self.ok = read_pointer(result.ok, self.__lib__)
-                self.err = read_pointer(result.err, self.__lib__)
+        @classmethod
+        def __from_result__(cls, res, lib):
+            if res:
+                result = res.contents
+                ok = read_pointer(ok_ty, result.ok, lib)
+                err = read_pointer(err_ty, result.err, lib)
+                return Result(ok, err, lib)
             else:
                 raise FFiError("Recieved null pointer as base result")
-            return self
 
         def from_param(v):
             raise NotImplementedError('Errors as arguments are not supported')
 
-        def get_ok(self):
+        def get_ok(self) -> T:
             return self.ok
 
-        def get_err(self):
+        def get_err(self) -> E:
             return self.err
 
-        def is_ok(self):
+        def is_ok(self) -> bool:
             return self.ok is not None
 
-        def is_err(self):
+        def is_err(self) -> bool:
             return self.err is not None
 
-        def consume(self):
-            print(self)
+        def consume(self) -> T:
             if self.err is not None:
                 raise FFiError(self.err)
             return self.ok
 
-    results[(tt, terr)] = Result
+    results[(T, E)] = Result
     return Result
 
 options = {}
-def OPTION(tt):
-    if tt in options:
-        return options[tt]
+def OPTION(T):
+    if T in options:
+        return options[T]
 
-    ty = to_c_type(tt)
-    class Option(POINTER(ty), LibValue):
-        _type_ = ty
+    if T is None:
+        raise ArgumentError("Option type cannot be none T: " + str(T))
 
-        def __init__(self, v):
-            super().__init__()
-            if hasattr(ty, 'from_param'):
-                self.contents = ty.from_param(v)
+    ty = to_c_type(T)
+    ptr = POINTER(ty if not hasattr(ty, '__ty__') else ty.__ty__())
+
+    class Option(LibValue):
+
+        @staticmethod
+        def __ty__():
+            return ptr
+
+        def __init__(self, v: T, lib):
+            super().__init__(lib)
+            self.__value__ = v
+
+        @classmethod
+        def __from_result__(cls, res, lib):
+            inner = read_pointer(ptr, res, res)
+            if inner is not None and hasattr(ty, '__from_result__'):
+                return Option(ty.__from_result__(inner, lib), lib)
             else:
-                self.contents = v
-
-        def __free__(self, lib):
-            if isinstance(self.value, LibValue):
-                self.value.__free__(lib)
-
-        def __into__(self, lib):
-            super().__into__(lib)
-            self.value = read_pointer(self, self.__lib__)
-            return self
+                return Option(inner, lib)
 
         def from_param(v):
             if isinstance(v, Option):
-                return Option(v.value)
+                return Option(v.__value__, None)
             if v is None:
-                return Option(None)
+                return Option(None, None)
             if isinstance(v, ty):
-                return Option(v)
+                return Option(v, None)
             if hasattr(ty, 'from_param'):
-                return Option(v)
+                return Option(v, None)
             raise ArgumentError('Expected ' + str(ty) + ' but got ' + str(type(v)))
 
-        def unwrap(self):
-           return self.value
+        def unwrap(self) -> T:
+           return self.__value__
 
-    options[tt] = Option
+    options[T] = Option
     return Option
+
+types = {}
+
+def submit_type(name, ty):
+    types[name] = ty
+
+def get_type(ty):
+    if ty in types:
+        return types[ty]
+    return ty

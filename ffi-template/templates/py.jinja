@@ -1,12 +1,11 @@
 from __future__ import annotations
-from pydoc import locate
 from foreignc import *
 
 {% for box in boxes -%}
 class {{ box.self_ty }}(Box):
 {%- if box.destructor %}
     @staticmethod
-    def get_free_func():
+    def __free_func__() -> str:
         return '{{ box.destructor }}'
 {%- endif %}
 {% for abi in box.methods %}
@@ -15,12 +14,22 @@ class {{ box.self_ty }}(Box):
             , argtypes=(
                 {%- for lib_value in abi.extern_inputs -%}
                     {%- if not loop.first -%}, {% endif -%}
-                    locate('{{ lib_value }}')
+                    {%- if lib_value == box.self_ty -%}
+                    '{{ lib_value }}'
+                    {%- else -%}
+                    {{ lib_value }}
+                    {%- endif -%}
+                    
                 {%- endfor -%}
             ,)
         {%- endif -%}
         {%- if abi.extern_output -%}
-            , restype=locate('{{ abi.extern_output }}')
+            , restype=
+                {%- if abi.extern_output == box.self_ty -%}
+                '{{ abi.extern_output }}'
+                {%- else -%}
+                {{ abi.extern_output }}
+                {%- endif -%}
         {%- endif -%}
     )
     def {{ abi.sig_name }}(
@@ -39,6 +48,7 @@ class {{ box.self_ty }}(Box):
             {%- endfor -%}           
         )
 {% endfor %}
+submit_type('{{ box.self_ty }}', {{ box.self_ty }})
 {%- endfor -%}
 
 {% for json in jsons %}
@@ -52,12 +62,21 @@ class {{ json.self_ty }}(Json):
             , argtypes=(
                 {%- for lib_value in abi.extern_inputs -%}
                     {%- if not loop.first -%}, {% endif -%}
-                    locate('{{ lib_value }}')
+                    {%- if lib_value == json.self_ty -%}
+                    '{{ lib_value }}'
+                    {%- else -%}
+                    {{ lib_value }}
+                    {%- endif -%}
                 {%- endfor -%}
             ,)
         {%- endif -%}
         {%- if abi.extern_output -%}
-            , restype=locate('{{ abi.extern_output }}')
+            , restype=
+                {%- if abi.extern_output == json.self_ty -%}
+                '{{ abi.extern_output }}'
+                {%- else -%}
+                {{ abi.extern_output }}
+                {%- endif -%}
         {%- endif -%}
     )
     def {{ abi.sig_name }}(
@@ -77,6 +96,7 @@ class {{ json.self_ty }}(Json):
         )
 {% endfor %}
 {%- endif %}
+submit_type('{{ json.self_ty }}', {{ json.self_ty }})
 {% endfor -%}
 
 class {{ lib_name }}(BaseLib):

@@ -20,6 +20,7 @@ impl RustContext {
     }
 
     fn create_context(&self, lib_name: Option<String>) -> TResult<Context> {
+        println!("{:#?}", self.structs);
         let return_string = self.funcs.iter().any(|f| f.output.as_ref().map_or(false, |t| t.is_string()))
             || self.structs.iter().any(|s| s.ty == StructTypes::Json)
             || self.structs.iter().any(|s| s.methods.iter().any(|f| f.output.as_ref().map_or(false, |t| t.is_string())));

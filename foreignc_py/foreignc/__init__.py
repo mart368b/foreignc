@@ -1,2 +1,2 @@
-from foreignc.classes import Box, Json, BaseLib, LibString, lib_char_p_to_str, OPTION, RESULT
-from foreignc.decorators import map_arg, create_abi
+from foreignc.classes import Box, Json, BaseLib, LibString, OPTION, RESULT, submit_type
+from foreignc.decorators import create_abi

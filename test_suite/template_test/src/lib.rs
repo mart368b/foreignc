@@ -10,12 +10,17 @@ pub struct BoxedStruct{
     value: String
 }
 
+impl Drop for BoxedStruct {
+    fn drop(&mut self) {
+        println!("Dropping: {:?}", self);
+    }
+}
+
 #[derive(Json, Serialize, Deserialize, Debug)]
 pub struct JsonStruct{
     name: String,
     value: String
 }
-/*
 
 #[with_abi]
 impl JsonStruct {
@@ -44,32 +49,12 @@ impl BoxedStruct {
         println!("debug: {:?}", self);
     }
 }
-*/
 
-pub fn does_panic() -> &'static str {
-    panic!("a");
-}
-#[no_mangle]
-pub  extern "C" fn does_panic_ffi(
-) -> *mut foreignc::CResult<*mut std::os::raw::c_char, std::os::raw::c_char> {
-    unsafe {
-        let v = panic::catch_unwind(|| -> foreignc::FFiResult<_> {
-            Ok(foreignc::IntoFFi::into_ffi(does_panic())?)
-        })
-        .unwrap_or_else(|e| {
-            Err(foreignc::FFiError {
-                content: "Panic".to_owned(),
-            })
-        });
-        foreignc::FFiResultWrap::from(v).into()
-    }
-}
-
-/*
 #[with_abi]
 pub fn does_panic() -> &'static str {
     ""
 }
+
 #[with_abi]
 pub fn get_string() -> &'static str {
     "Hello World!"
@@ -99,4 +84,3 @@ pub fn get_some() -> Option<String> {
 pub fn set_some(v: Option<String>) {
     println!("---{:?}", v);
 }
-*/

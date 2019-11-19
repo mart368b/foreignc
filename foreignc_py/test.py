@@ -1,28 +1,28 @@
-from api import FfiTemplateLib
-
+from api import FfiTemplateLib, JsonStruct, BoxedStruct
+from foreignc import OPTION
 if __name__ == '__main__':
 
 
     lib = FfiTemplateLib('template_test.dll')
 
-    lib.does_panic()
+    #print(lib.get_string())
 
     #print(lib.get_string())
     #print(lib.get_number())
 
     # Create json object
-    #s = lib.get_json_struct()
-    #lib.debug_json(s)
-    #print(s.str_value)
-    # object dropped
-    #del s
+    #s = JsonStruct.new(lib)
+    #s.debug()
 
     # Create box
-    #b = lib.get_boxed_struct()
-    #print(b)
+    #b = BoxedStruct.new(lib)
+    #b.debug()
+    #del b
     # box dropped
     #del b
 
     #lib.parse_string("a")
-    #a = lib.get_some()
+    a = lib.get_none()
+
+    #print(a.unwrap())
     #lib.set_some(a)
