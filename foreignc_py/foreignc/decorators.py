@@ -1,5 +1,5 @@
 from functools import wraps
-from .classes import LibValue, RESULT, FFiError, get_type
+from .classes import LibValue, Result, FFiError, get_type
 from ctypes import ArgumentError
 
 def to_decorator(func):
@@ -38,10 +38,11 @@ def create_abi(name: str, argtypes = (), restype = None, errcheck = None, func =
         nonlocal is_implemented
         if not is_implemented:
             is_implemented = True
+            gen_restype = Result[get_type(restype), str]
             abi_func = getattr(lib, name)
             abi_func.argtypes = map(get_type, argtypes)
-            abi_func.restype = RESULT(get_type(restype), str).__ty__()
-            abi_func.errcheck = apply_lib_value(lib, RESULT(get_type(restype), str), errcheck)
+            abi_func.restype = gen_restype.__ty__()
+            abi_func.errcheck = apply_lib_value(lib, gen_restype, errcheck)
         return func(*args, **kwargs).consume()
     return wrapper
 

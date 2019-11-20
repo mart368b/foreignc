@@ -33,16 +33,16 @@ class FfiTemplateLib(BaseLib):
     def does_panic(self) -> str:
         return self.__lib__.does_panic_ffi()
 
-    @create_abi('get_none_ffi', restype=OPTION(int))
-    def get_none(self) -> OPTION(int):
+    @create_abi('get_none_ffi', restype=Option[int])
+    def get_none(self) -> Option[int]:
         return self.__lib__.get_none_ffi()
 
     @create_abi('get_number_ffi', restype=int)
     def get_number(self) -> int:
         return self.__lib__.get_number_ffi()
 
-    @create_abi('get_some_ffi', restype=OPTION(LibString))
-    def get_some(self) -> OPTION(str):
+    @create_abi('get_some_ffi', restype=Option[LibString])
+    def get_some(self) -> Option[str]:
         return self.__lib__.get_some_ffi()
 
     @create_abi('get_string_ffi', restype=LibString)
@@ -53,6 +53,6 @@ class FfiTemplateLib(BaseLib):
     def parse_string(self, s: str) :
         return self.__lib__.parse_string_ffi(s)
 
-    @create_abi('set_some_ffi', argtypes=(OPTION(LibString),))
-    def set_some(self, v: OPTION(str)) :
+    @create_abi('set_some_ffi', argtypes=(Option[Option[LibString]],))
+    def set_some(self, v: Option[Option[str]]) :
         return self.__lib__.set_some_ffi(v)

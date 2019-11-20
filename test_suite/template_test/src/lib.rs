@@ -81,6 +81,6 @@ pub fn get_some() -> Option<String> {
 }
 
 #[with_abi]
-pub fn set_some(v: Option<String>) {
+pub fn set_some(v: Option<Option<String>>) {
     println!("---{:?}", v);
 }

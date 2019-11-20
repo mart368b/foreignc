@@ -101,8 +101,8 @@ impl PythonTypes {
             PythonTypes::String => "str".to_owned(),
             PythonTypes::Pointer(s) => s.to_owned(),
             PythonTypes::Primitive(p) => p.to_owned(),
-            PythonTypes::Option(s) => format!("OPTION({})", s.get_hint()),
-            PythonTypes::Result(ok, err) => format!("RESULT({}, {})", ok.get_hint(), err.get_hint()),
+            PythonTypes::Option(s) => format!("Option[{}]", s.get_hint()),
+            PythonTypes::Result(ok, err) => format!("Result[{}, {}]", ok.get_hint(), err.get_hint()),
         }
     }
 
@@ -111,8 +111,8 @@ impl PythonTypes {
             PythonTypes::String => "LibString".to_owned(),
             PythonTypes::Pointer(s) => s.to_owned(),
             PythonTypes::Primitive(p) => p.to_owned(),
-            PythonTypes::Option(s) => format!("OPTION({})", s.get_extern()),
-            PythonTypes::Result(ok, err) => format!("RESULT({}, {})", ok.get_extern(), err.get_extern()),
+            PythonTypes::Option(s) => format!("Option[{}]", s.get_extern()),
+            PythonTypes::Result(ok, err) => format!("Result[{}, {}]", ok.get_extern(), err.get_extern()),
         }
     }
 }
