@@ -95,7 +95,13 @@ where
                 _ => Ok(RustTypes::Ptr(path_name.to_owned())),
             }
         }
-        Type::Ptr(v) => Ok(RustTypes::Ptr(v.to_token_stream().to_string())),
-        _ => Ok(RustTypes::Ptr("c_void".to_owned())),
+        Type::Ptr(v) => {
+            println!("{:?}", v);
+            Ok(RustTypes::Ptr(v.elem.to_token_stream().to_string()))
+        },
+        _ => {
+            println!("shjdasjdhaso");
+            Ok(RustTypes::Ptr("c_void".to_owned()))
+        },
     }
 }

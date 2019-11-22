@@ -4,14 +4,16 @@ mod error;
 pub use error::*;
 pub use ffi_util::*;
 pub use std::ffi::CString;
+pub use foreignc_derive::{
+    generate_free_string, with_abi, Boxed, Json,
+};
+#[cfg(feature = "template")]
 pub use ffi_template::*;
 
-pub use foreignc_derive::{
-    generate_free_string, generate_last_error, with_abi, Boxed, Json,
-};
 
-#[allow(unused_imports)]
+#[cfg(feature = "template")]
 use ffi_template::derived_input::{get_dir_path};
+#[cfg(feature = "template")]
 use ffi_template::RustContext;
 
 #[cfg(feature = "template")]

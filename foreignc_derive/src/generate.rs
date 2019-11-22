@@ -47,10 +47,10 @@ pub fn to_extern_item_fn(
     if let ReturnType::Type(_, ref mut ty) = item.sig.output {
         let mut out = TokenStream1::from_str("*mut foreignc::CResult<")?;
         out.extend(convert_to_ptr(ty.as_ref())?);
-        out.extend(TokenStream1::from_str(", std::os::raw::c_char>"));
+        out.extend(TokenStream1::from_str(", *mut std::os::raw::c_char>"));
         *ty = Box::new(parse(out)?);
     }else {
-        item.sig.output = ReturnType::Type(Token![->](Span::call_site()), parse_str("*mut foreignc::CResult<(), std::os::raw::c_char>")?);
+        item.sig.output = ReturnType::Type(Token![->](Span::call_site()), parse_str("*mut foreignc::CResult<(), *mut std::os::raw::c_char>")?);
     }
 
     Ok(ItemFn {

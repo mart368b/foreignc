@@ -43,7 +43,7 @@ def create_abi(name: str, argtypes = (), restype = None, errcheck = None, func =
             abi_func.argtypes = map(get_type, argtypes)
             abi_func.restype = gen_restype.__ty__()
             abi_func.errcheck = apply_lib_value(lib, gen_restype, errcheck)
-        return func(*args, **kwargs).consume()
+        return func(*args, **kwargs)
     return wrapper
 
 def apply_lib_value(lib, res_ty, errcheck = None):

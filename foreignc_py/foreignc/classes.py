@@ -1,11 +1,15 @@
 import json, os, sys
 from ctypes import *
 
-class GenericError(TypeError):
+class GenericError(Exception):
     def __init__(self, message):
         super().__init__(message)
 
-class FFiError(ConnectionError):
+class FFiError(Exception):
+    def __init__(self, message):
+        super().__init__(message)
+
+class ArgumentError(Exception):
     def __init__(self, message):
         super().__init__(message)
 
@@ -79,6 +83,24 @@ class Box(LibValue):
             return v.__value__
         raise ArgumentError('Expected box ' + str(type(v)))
 
+class RawPointer(LibValue):
+    def __init__(self, res, lib):
+        super().__init__(lib)
+        self.__value__ = res
+
+    @staticmethod
+    def __ty__():
+        return c_void_p
+
+    @classmethod
+    def __from_result__(cls, res, lib):
+        return cls(res, lib)
+
+    def from_param(v):
+        if isinstance(v, RawPointer):
+            return v.__value__
+        raise ArgumentError('Expected raw pointer got ' + str(type(v)))
+
 class Json(LibValue):
     def __init__(self, res, lib):
         super().__init__(lib)
@@ -111,9 +133,14 @@ class Json(LibValue):
     def object(self, v: object):
         self.__json__ = json.dumps(v)
 
-    def from_param(v):
+    def __str__(self):
+        return self.__json__
+
+    @classmethod
+    def from_param(cls, v):
         if isinstance(v, Json):
-            return c_char_p(v.value.encode('utf-8'))
+            v.buff = v.value.encode('utf-8')
+            return c_char_p(v.buff)
         raise ArgumentError('Expected Json ' + str(type(v)))
 
 def to_c_type(ty):
@@ -133,7 +160,10 @@ def read_pointer(cls, ptr, lib):
         if hasattr(cls, '__from_result__'):
             return cls.__from_result__(content, lib)
         else:
-            return content
+            if hasattr(content, 'value'):
+                return content.value
+            else:
+                return content
     else:
         return None
 
@@ -143,10 +173,11 @@ class Result(LibValue):
     E = None
     _CResult_ = None
 
-    def __init__(self, ok, err, lib):
+    def __init__(self, ok, err, lib = None, raw = None):
         super().__init__(lib)
         self.ok = ok
         self.err = err
+        self.__raw__ = raw
 
     def __class_getitem__(cls, TT):
         Ty, Ey = TT
@@ -165,6 +196,7 @@ class Result(LibValue):
 
         class CResult(Structure):
             _fields_ = [
+                ("is_err", c_bool),
                 ("ok", POINTER(ok_ty if not hasattr(ok_ty, '__ty__') else ok_ty.__ty__())),
                 ("err", POINTER(err_ty if not hasattr(err_ty, '__ty__') else err_ty.__ty__()))
             ]
@@ -185,11 +217,16 @@ class Result(LibValue):
     def __from_result__(cls, res, lib):
         if res:
             result = res.contents
-            ok = read_pointer(to_c_type(Result.T), result.ok, lib)
-            err = read_pointer(to_c_type(Result.E), result.err, lib)
-            return cls(ok, err, lib)
+            ok = read_pointer(to_c_type(cls.T), result.ok, lib)
+            err = read_pointer(to_c_type(cls.E), result.err, lib)
+            return cls(ok, err, lib, raw=res)
         else:
             raise FFiError("Recieved null pointer as base result")
+    
+    def __free__(self, lib):
+        if self.__raw__ is not None:
+            pass
+            #lib.free_cresult(self.__raw__)
 
     def from_param(v):
         raise NotImplementedError('Errors as arguments are not supported')
@@ -200,26 +237,28 @@ class Result(LibValue):
     def get_err(self) -> E:
         return self.err
 
+    @property
     def is_ok(self) -> bool:
         return self.ok is not None
 
+    @property
     def is_err(self) -> bool:
         return self.err is not None
 
     def consume(self) -> T:
-        if self.err is not None:
+        if self.is_err:
             raise FFiError(self.err)
         return self.ok
-
 
 options = {}
 class Option(LibValue):
     T = None
     _Pointer_ = None
 
-    def __init__(self, v: T, lib = None):
+    def __init__(self, v: T, lib = None, raw = None):
         super().__init__(lib)
         self.__value__ = v
+        self.__raw__ = raw
 
     def __class_getitem__(cls, Ty):
         if Ty == str:
@@ -240,11 +279,8 @@ class Option(LibValue):
 
     @classmethod
     def __from_result__(cls, res, lib):
-        inner = read_pointer(to_c_type(Option.T), res, lib)
-        if inner is not None and hasattr(Option.T, '__from_result__'):
-            return cls(inner, lib)
-        else:
-            return cls(inner, lib)
+        inner = read_pointer(to_c_type(cls.T), res, lib)
+        return cls(inner, lib, res)
 
     @classmethod
     def __ty__(cls):
@@ -264,6 +300,11 @@ class Option(LibValue):
         if not isinstance(cls.T, Option) and hasattr(cls.T, 'from_param'):
             return cls._Pointer_(cls.T.from_param(v))
         raise ArgumentError('Expected ' + str(cls.T) + ' but got ' + str(type(v)))
+    
+    def __free__(self, lib):
+        if self.__raw__ is not None:
+            pass
+            #lib.free_option(self.__raw__)
 
     def unwrap(self) -> T:
        return self.__value__

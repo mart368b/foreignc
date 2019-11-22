@@ -12,19 +12,21 @@ impl<T> From<FFiResult<T>> for FFiResultWrap<T> {
 }
 
 
-impl<T> Into<*mut CResult<T, c_char>> for FFiResultWrap<T> {
-    fn into(self) -> *mut CResult<T, c_char> {
-        Box::leak(Box::new(match self.0 {
+impl<T> Into<*mut CResult<T, *mut c_char>> for FFiResultWrap<T> {
+    fn into(self) -> *mut CResult<T, *mut c_char> {
+        Box::into_raw(Box::new(match self.0 {
             Ok(v) => {
                 CResult {
-                    ok: Box::leak(Box::new(v)),
+                    is_err: false,
+                    ok: Box::into_raw(Box::new(v)),
                     err: std::ptr::null_mut()
                 }
             },
             Err(e) => {
                 CResult {
+                    is_err: true,
                     ok: std::ptr::null_mut(),
-                    err: IntoFFi::into_ffi(e.content).unwrap()
+                    err: Box::into_raw(Box::new(String::into_ffi(e.content).unwrap()))
                 }
             }
         }))
@@ -41,6 +43,7 @@ where
     T: Display
 {
     fn from(v: T) -> FFiError {
+        println!("Creating error {}", v);
         FFiError {
             content: format!("{}", v)
         }

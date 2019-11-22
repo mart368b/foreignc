@@ -21,10 +21,6 @@ macro_rules! impl_direct {
             fn into_ffi(v: Self) -> FFiResult<$T> { Ok(v) }
         }
 
-        unsafe impl IntoFFi<*mut $T> for $T {
-            fn into_ffi(v: Self) -> FFiResult<*mut $T> { Ok(Box::leak(Box::new(v))) }
-        }
-
         unsafe impl FromFFi<$T> for $T {
             fn from_ffi(v: $T) -> FFiResult<$T> { Ok(v) }
         }
@@ -105,7 +101,7 @@ where
 {
     fn into_ffi(v: Self) -> FFiResult<*mut U> {
         Ok(if let Some(v) = v {
-            Box::leak(Box::new(T::into_ffi(v)?))
+            Box::into_raw(Box::new(T::into_ffi(v)?))
         } else {
             std::ptr::null_mut()
         })
@@ -114,6 +110,7 @@ where
 
 #[repr(C)]
 pub struct CResult<T, E>{
+    pub is_err: bool,
     pub ok: *mut T,
     pub err: *mut E
 }
@@ -124,14 +121,16 @@ where
     E: IntoFFi<V>,
 {
     fn into_ffi(v: Self) -> FFiResult<*mut CResult<U, V>> {
-        Ok(Box::leak(Box::new(match v {
+        Ok(Box::into_raw(Box::new(match v {
             Ok(v) => CResult {
-                ok: IntoFFi::into_ffi(Some(v))?,
+                is_err: false,
+                ok: Box::into_raw(Box::new(IntoFFi::into_ffi(v)?)),
                 err: std::ptr::null_mut()
             },
             Err(v) => CResult {
+                is_err: true,
                 ok: std::ptr::null_mut(),
-                err: IntoFFi::into_ffi(Some(v))?
+                err: Box::into_raw(Box::new(IntoFFi::into_ffi(v)?))
             }
         })))
     }

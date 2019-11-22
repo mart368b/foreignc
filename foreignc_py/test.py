@@ -1,18 +1,21 @@
 from api import FfiTemplateLib, JsonStruct, BoxedStruct, Option
 from foreignc import ArgumentError
+import time
 if __name__ == '__main__':
 
 
     lib = FfiTemplateLib('template_test.dll')
-
+    print(lib.get_unknown())
     #print(lib.get_string())
 
     #print(lib.get_string())
-    #print(lib.get_number())
+    #print(lib.parse_string("1234"))
 
     # Create json object
     #s = JsonStruct.new(lib)
+    #s.value = "a"
     #s.debug()
+    #print('*'*20)
 
     # Create box
     #b = BoxedStruct.new(lib)
@@ -26,13 +29,13 @@ if __name__ == '__main__':
     #print(a.unwrap())
 
     #print(a.unwrap())
-    lib.set_some(None)
-    lib.set_some('a')
-    lib.set_some(Option(None))
-    lib.set_some(Option('a'))
-    lib.set_some(Option(Option('a')))
-    try:
-        lib.set_some(Option(Option(None)))
-    except ArgumentError as e:
-        print('assert_err: "' + str(e) + '"')
+    #lib.set_some(None)
+    #lib.set_some('a')
+    #lib.set_some(Option(None))
+    #lib.set_some(Option('a'))
+    #lib.set_some(Option(Option('a')))
+    #try:
+    #    lib.set_some(Option(Option(None)))
+    #except ArgumentError as e:
+    #    print('assert_err: "' + str(e) + '"')
 

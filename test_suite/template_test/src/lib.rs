@@ -22,6 +22,9 @@ pub struct JsonStruct{
     value: String
 }
 
+#[derive(Debug)]
+pub struct UnknownStruct{}
+
 #[with_abi]
 impl JsonStruct {
     pub fn new() -> JsonStruct {
@@ -78,6 +81,11 @@ pub fn get_none() -> Option<u32> {
 #[with_abi]
 pub fn get_some() -> Option<String> {
    Some("Some(123456)".to_owned())
+}
+
+#[with_abi]
+pub fn get_unknown() -> *mut UnknownStruct {
+   Box::into_raw(Box::new(UnknownStruct{}))
 }
 
 #[with_abi]

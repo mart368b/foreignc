@@ -143,9 +143,40 @@ pub fn generate_free_string(_item: TokenStream1) -> TokenStream1 {
     output.extend::<TokenStream1>("#[no_mangle]".parse::<TokenStream1>().expect("Failed to parse no_mangle"));
     output.extend::<TokenStream1>(
         quote!(
+            pub extern "C" fn free_option(ptr: *mut std::os::raw::c_void) {
+                let s = unsafe { Box::from_raw(ptr) };
+                //println!("Freeing option");
+            }
+        )
+        .into(),
+    );
+
+    output.extend::<TokenStream1>("#[no_mangle]".parse::<TokenStream1>().expect("Failed to parse no_mangle"));
+    output.extend::<TokenStream1>(
+        quote!(
+            pub extern "C" fn free_cresult(ptr: *mut CResult<(), std::os::raw::c_void>) {
+                println!("Freeing");
+                let s = unsafe { Box::from_raw(ptr) };
+                println!("Freeing next");
+                if s.is_err {
+                    println!("err");
+                    let err = unsafe { Box::from_raw(s.err) };
+                }else {
+                    println!("ok {:?}", s.ok.is_null());
+                    let ok = unsafe { Box::from_raw(s.ok) };
+                }
+                //println!("Freeing result");
+            }
+        )
+        .into(),
+    );
+
+    output.extend::<TokenStream1>("#[no_mangle]".parse::<TokenStream1>().expect("Failed to parse no_mangle"));
+    output.extend::<TokenStream1>(
+        quote!(
             pub extern "C" fn free_string(ptr: *mut std::os::raw::c_char) {
                 let s = unsafe { foreignc::CString::from_raw(ptr) };
-                println!("Freeing string \"{:?}\"", s);
+                //println!("Freeing string \"{:?}\"", s);
             }
         )
         .into(),
@@ -168,48 +199,6 @@ pub fn generate_free_string(_item: TokenStream1) -> TokenStream1 {
 
         throw_err!(
             add_to_path(free)
-                .map_err(|e| syn::Error::new(Span::call_site(), &e))
-        );
-    }
-
-    output
-}
-
-#[proc_macro]
-pub fn generate_last_error(_item: TokenStream1) -> TokenStream1 {
-    let mut output = TokenStream1::new();
-
-    output.extend::<TokenStream1>("#[no_mangle]".parse::<TokenStream1>().expect("Failed to parse no_mangle"));
-    output.extend::<TokenStream1>(
-        quote!(
-            pub extern "C" fn last_error() -> *mut std::os::raw::c_void {
-                if let Some(e) = foreignc::take_last_error() {
-                    String::into_ffi(format!("{}", e))
-                } else {
-                    String::into_ffi("".to_owned())
-                }
-            }
-        )
-        .into(),
-    );
-
-    #[cfg(feature = "template")]
-    {
-        let take = RustFreeFunction {
-            ty: RustTypes::Result(Box::new(RustTypes::String), Box::new(RustTypes::String)),
-            func: RustFunction {
-                name: "free_string".to_owned(),
-                extern_name: "free_string".to_owned(),
-                inputs: vec![RustArgument {
-                    name: "ptr".to_owned(),
-                    ty: RustTypes::Ptr("c_char".to_owned()),
-                }],
-                output: None,
-            },
-        };
-
-        throw_err!(
-            add_to_path(take)
                 .map_err(|e| syn::Error::new(Span::call_site(), &e))
         );
     }
@@ -331,8 +320,12 @@ pub fn derive_json(input: TokenStream1) -> TokenStream1 {
     quote!(
         unsafe impl foreignc::FromFFi<*mut #name> for #name{
             fn from_ffi(p: *mut #name) -> foreignc::FFiResult<Self> {
-                let s = foreignc::FromFFi::from_ffi(p as *mut std::os::raw::c_char)?;
-                Ok(serde_json::from_str(s)?)
+                println!("from c_char");
+                let s = foreignc::FromFFi::from_ffi(p as *mut std::os::raw::c_char);
+                println!("--{:?}--", s);
+                let json = serde_json::from_str(s?);
+                println!("--{:?}--", json);
+                Ok(json?)
             }
         }
 

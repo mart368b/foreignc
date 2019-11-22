@@ -46,7 +46,7 @@ class {{ box.self_ty }}(Box):
             {%- if loop.first == false -%}, {% endif -%}
             {{ arg }}
             {%- endfor -%}           
-        )
+        ).consume()
 {% endfor %}
 submit_type('{{ box.self_ty }}', {{ box.self_ty }})
 {%- endfor -%}
@@ -93,11 +93,16 @@ class {{ json.self_ty }}(Json):
             {%- if loop.first == false -%}, {% endif -%}
             {{ arg }}
             {%- endfor -%}           
-        )
+        ).consume()
 {% endfor %}
 {%- endif %}
 submit_type('{{ json.self_ty }}', {{ json.self_ty }})
 {% endfor -%}
+
+{% for pointer in pointers %}
+class {{ pointer.self_ty }}(RawPointer):
+    pass
+{% endfor %}
 
 class {{ lib_name }}(BaseLib):
     def __init__(self, src: str):
@@ -128,5 +133,5 @@ class {{ lib_name }}(BaseLib):
             {%- if loop.first == false -%}, {% endif -%}
             {{ arg }}
             {%- endfor -%}
-        )
+        ).consume()
 {% endfor %}
