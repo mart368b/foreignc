@@ -143,9 +143,10 @@ pub fn generate_free_string(_item: TokenStream1) -> TokenStream1 {
     output.extend::<TokenStream1>("#[no_mangle]".parse::<TokenStream1>().expect("Failed to parse no_mangle"));
     output.extend::<TokenStream1>(
         quote!(
-            pub extern "C" fn free_option(ptr: *mut std::os::raw::c_void) {
-                let s = unsafe { Box::from_raw(ptr) };
-                //println!("Freeing option");
+            pub extern "C" fn free_coption(ptr: *mut foreignc::c_void) {
+                unsafe {
+                    foreignc::free_libc(ptr);
+                }
             }
         )
         .into(),
@@ -154,18 +155,11 @@ pub fn generate_free_string(_item: TokenStream1) -> TokenStream1 {
     output.extend::<TokenStream1>("#[no_mangle]".parse::<TokenStream1>().expect("Failed to parse no_mangle"));
     output.extend::<TokenStream1>(
         quote!(
-            pub extern "C" fn free_cresult(ptr: *mut CResult<(), std::os::raw::c_void>) {
-                println!("Freeing");
-                let s = unsafe { Box::from_raw(ptr) };
-                println!("Freeing next");
-                if s.is_err {
-                    println!("err");
-                    let err = unsafe { Box::from_raw(s.err) };
-                }else {
-                    println!("ok {:?}", s.ok.is_null());
-                    let ok = unsafe { Box::from_raw(s.ok) };
-                }
-                //println!("Freeing result");
+            pub extern "C" fn free_cresult(ptr: *mut CResult<foreignc::c_void, foreignc::c_void>) {
+                unsafe { 
+                    let s = Box::from_raw(ptr);
+                    foreignc::free_libc(s.value)
+                };
             }
         )
         .into(),
@@ -175,8 +169,7 @@ pub fn generate_free_string(_item: TokenStream1) -> TokenStream1 {
     output.extend::<TokenStream1>(
         quote!(
             pub extern "C" fn free_string(ptr: *mut std::os::raw::c_char) {
-                let s = unsafe { foreignc::CString::from_raw(ptr) };
-                //println!("Freeing string \"{:?}\"", s);
+                let _s = unsafe { foreignc::CString::from_raw(ptr) };
             }
         )
         .into(),

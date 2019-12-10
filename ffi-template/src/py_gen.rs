@@ -20,32 +20,55 @@ impl RustContext {
     }
 
     fn create_context(&self, lib_name: Option<String>) -> TResult<Context> {
-        println!("{:#?}", self.structs);
-        let return_string = self.funcs.iter().any(|f| f.output.as_ref().map_or(false, |t| t.is_string()))
-            || self.structs.iter().any(|s| s.ty == StructTypes::Json)
-            || self.structs.iter().any(|s| s.methods.iter().any(|f| f.output.as_ref().map_or(false, |t| t.is_string())));
+        // Check if any method or function returns a string
+        let return_string = self.funcs
+            .iter()
+            .any(|f| 
+                f.output
+                    .as_ref()
+                    .map_or(false, |t| t.is_string()))
+                || self.structs
+                    .iter()
+                    .any(|s| s.ty == StructTypes::Json)
+                || self.structs
+                    .iter()
+                    .any(|s| s.methods.iter()
+                    .any(|f| f.output.as_ref().map_or(false, |t| t.is_string())));
+        
+        // if a string is returned check if free_string is set
         if return_string {
-            let has_free_string = self.free_funcs.iter().any(|f| &f.func.name == "free_string")
-            || self.funcs.iter().any(|f| &f.name == "free_string");
+            let has_free_string = self.free_funcs
+                .iter()
+                .any(|f| &f.func.name == "free_string")
+                || self.funcs
+                    .iter()
+                    .any(|f| &f.name == "free_string");
+            
+            // Throw error
             if !has_free_string {
                 return Err(TemplateError::MessageErr("Returned string without methods of deletion please add free_string a function or use foreignc_derive::generate_free_string to generate it".to_owned()))
             }
         }
         
         let mut structs = self.structs.clone();
-        
-        let abi: Vec<FunctionABI> = self.funcs.iter().map(|a| FunctionABI::from_rust(a, &mut structs)).collect();
+        let abi: Vec<FunctionABI> = self.funcs
+            .iter()
+            .map(|a| FunctionABI::from_rust(a, &mut structs))
+            .collect();
         
         // Currently we dont add the free function explicitly
         //let mut free_abi: Vec<FunctionABI> = self.free_funcs.iter().map(|a| FunctionABI::from_rust(&a.func, &mut structs)).collect();
         //abi.append(&mut free_abi);
 
-        let mut added = Vec::new();
-        while structs.len() != 0 {
-            let first = structs.pop().unwrap();
-            let converted = StructureABI::from_rust(first, &mut structs);
+        let mut added: Vec<StructureABI> = Vec::new();
+        while !structs.is_empty() {
+            let current = structs.pop().unwrap();
+            if added.iter().any(|a| a.self_ty == current.self_ty) {
+                continue
+            }
+            let converted = StructureABI::from_rust(current, &mut structs);
             added.push(converted);
-        }
+        } 
         
         type Partition = (Vec<StructureABI>, Vec<StructureABI>);
         let (boxes, others): Partition = added.into_iter().partition(|s| s.ty == StructTypes::Boxed);

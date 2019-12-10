@@ -73,6 +73,7 @@ impl PythonTypes {
     pub fn from_rust<T: AsRef<RustTypes>>(ty: T, structs: &mut Vec<RustStructure>) -> PythonTypes {
         match ty.as_ref() {
             RustTypes::Ptr(s) => {
+                println!("|{}| {:?}", s, structs.iter().map(|s| s.self_ty.to_owned()).collect::<Vec<String>>());
                 if structs.iter().find(|st| &st.self_ty == s).is_none() {
                     structs.push(RustStructure {
                         self_ty: s.to_owned(),
@@ -86,8 +87,8 @@ impl PythonTypes {
             RustTypes::Option(s) => PythonTypes::Option(Box::new(PythonTypes::from_rust(s, structs))),
             RustTypes::Result(ok, err) => PythonTypes::Result(Box::new(PythonTypes::from_rust(ok, structs)), Box::new(PythonTypes::from_rust(err, structs))),
             RustTypes::Primitive(s) => match s.as_str() {
-                "i8" | "i16" | "i32" | "i64" | "i128" | "isize" | "u8" | "u16"
-                | "u32" | "u64" | "u128" | "usize" | "char" => PythonTypes::Primitive("int".to_owned()),
+                "i8" | "i16" | "i32" | "i64" | "i128" | "u8" | "u16"
+                | "u32" | "u64" | "u128" | "char" => PythonTypes::Primitive("int".to_owned()),
                 "f32" | "f64" => PythonTypes::Primitive("float".to_owned()),
                 "bool" => PythonTypes::Primitive("bool".to_owned()),
                 _ => unimplemented!()

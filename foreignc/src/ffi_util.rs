@@ -1,8 +1,10 @@
+extern crate libc;
 use crate::FFiResult;
 use std::ffi::CStr;
 use std::os::raw::c_char;
+use std::marker::PhantomData;
 use crate::*;
-
+use std::mem;
 
 pub unsafe trait IntoFFi<PtrOut> {
     fn into_ffi(v: Self) -> FFiResult<PtrOut>;
@@ -101,7 +103,13 @@ where
 {
     fn into_ffi(v: Self) -> FFiResult<*mut U> {
         Ok(if let Some(v) = v {
-            Box::into_raw(Box::new(T::into_ffi(v)?))
+            let v = IntoFFi::into_ffi(v)?;
+            unsafe {
+                let obj_size = mem::size_of_val(&v);
+                let ptr: *mut U = libc::malloc(obj_size) as *mut U;
+                *ptr = v;
+                ptr
+            }
         } else {
             std::ptr::null_mut()
         })
@@ -111,8 +119,9 @@ where
 #[repr(C)]
 pub struct CResult<T, E>{
     pub is_err: bool,
-    pub ok: *mut T,
-    pub err: *mut E
+    pub value: *mut c_void,
+    pub t: PhantomData<T>,
+    pub e: PhantomData<E>,
 }
 
 unsafe impl<T, E, U, V> IntoFFi<*mut CResult<U, V>> for Result<T, E> 
@@ -121,17 +130,34 @@ where
     E: IntoFFi<V>,
 {
     fn into_ffi(v: Self) -> FFiResult<*mut CResult<U, V>> {
-        Ok(Box::into_raw(Box::new(match v {
-            Ok(v) => CResult {
-                is_err: false,
-                ok: Box::into_raw(Box::new(IntoFFi::into_ffi(v)?)),
-                err: std::ptr::null_mut()
-            },
-            Err(v) => CResult {
-                is_err: true,
-                ok: std::ptr::null_mut(),
-                err: Box::into_raw(Box::new(IntoFFi::into_ffi(v)?))
-            }
-        })))
+        unsafe {
+            Ok(Box::into_raw(Box::new(match v {
+                Ok(v) => {
+                    let v = IntoFFi::into_ffi(v)?;
+                    let obj_size = mem::size_of_val(&v);
+                    let ptr: *mut U = libc::malloc(obj_size) as *mut U;
+                    *ptr = v;
+                    CResult {
+                        is_err: false,
+                        value: ptr as *mut c_void,
+                        t: PhantomData,
+                        e: PhantomData,
+                    }
+                },
+                Err(v) => {
+                    let v = IntoFFi::into_ffi(v)?;
+                    let obj_size = mem::size_of_val(&v);
+                    let ptr: *mut V = libc::malloc(obj_size) as *mut V;
+                    *ptr = v;
+    
+                    CResult {
+                        is_err: true,
+                        value: ptr as *mut c_void,
+                        t: PhantomData,
+                        e: PhantomData,
+                    }
+                }
+            })))
+        }
     }
 }

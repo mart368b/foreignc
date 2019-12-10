@@ -1,12 +1,28 @@
 from api import FfiTemplateLib, JsonStruct, BoxedStruct, Option
 from foreignc import ArgumentError
 import time
-if __name__ == '__main__':
 
+import os
+class OneLiners:;    def __init__(self, problem): self.problem = problem;    def reduce(code: str): return code.replace(os.linesep, ';');    def solve(self): return OneLiners.reduce(self.problem.solution)
+
+if __name__ == '__main__':
+    for problem in open('https://itu.kattis.com/sessions/wcfdf2019', 'r'):
+        problem.solve().submit()
 
     lib = FfiTemplateLib('template_test.dll')
-    print(lib.get_unknown())
-    #print(lib.get_string())
+    #print(lib.get_unknown())
+    '''
+    print('getting numbers')
+    i = 0
+    while i < 1000000:
+        lib.get_number()
+        i += 1
+    '''
+    print('getting strings')
+    while True:
+        s = BoxedStruct.new(lib)
+        print('-'*30)
+    print('done')
 
     #print(lib.get_string())
     #print(lib.parse_string("1234"))

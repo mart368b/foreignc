@@ -1,5 +1,6 @@
 import json, os, sys
 from ctypes import *
+from weakref import ref
 
 class GenericError(Exception):
     def __init__(self, message):
@@ -144,14 +145,14 @@ class Json(LibValue):
         raise ArgumentError('Expected Json ' + str(type(v)))
 
 def to_c_type(ty):
+    if ty == str:
+        return LibString
     if ty == int:
         return c_int
     if ty == float:
         return c_float
     if ty == bool:
         return c_bool
-    if ty == str:
-        return LibString
     return ty
 
 def read_pointer(cls, ptr, lib):
@@ -171,25 +172,23 @@ results = {}
 class Result(LibValue):
     T = None
     E = None
+    CT = None
+    CE = None
     _CResult_ = None
 
-    def __init__(self, ok, err, lib = None, raw = None):
+    def __init__(self, is_err, value, lib = None, raw = None):
         super().__init__(lib)
-        self.ok = ok
-        self.err = err
+        self.__err__ = is_err
+        self.__value__ = value
         self.__raw__ = raw
 
     def __class_getitem__(cls, TT):
         Ty, Ey = TT
-        if Ty == str:
-            Ty = LibString
-        if Ey == str:
-            Ey = LibString
-        if (Ty, Ey) in results:
-            return results[(Ty, Ey)]
-
         if Ty is None and Ey is None:
             raise ArgumentError("Result types cannot be none T: " + str(Ty) + " E: " + str(Ey))
+
+        if (Ty, Ey) in results:
+            return results[(Ty, Ey)]
 
         ok_ty = to_c_type(Ty)
         err_ty = to_c_type(Ey)
@@ -197,14 +196,19 @@ class Result(LibValue):
         class CResult(Structure):
             _fields_ = [
                 ("is_err", c_bool),
-                ("ok", POINTER(ok_ty if not hasattr(ok_ty, '__ty__') else ok_ty.__ty__())),
-                ("err", POINTER(err_ty if not hasattr(err_ty, '__ty__') else err_ty.__ty__()))
+                ("value", POINTER(c_int)),
             ]
 
         class TypedResult(Result):
             T = Ty
             E = Ey
+            CT = ok_ty
+            CE = err_ty
             _CResult_ = CResult
+
+            def __free__(self, lib):
+                if self.__raw__ is not None:
+                    lib.free_cresult(self.__raw__)
 
         results[(Ty, Ey)] = TypedResult
         return TypedResult
@@ -217,42 +221,43 @@ class Result(LibValue):
     def __from_result__(cls, res, lib):
         if res:
             result = res.contents
-            ok = read_pointer(to_c_type(cls.T), result.ok, lib)
-            err = read_pointer(to_c_type(cls.E), result.err, lib)
-            return cls(ok, err, lib, raw=res)
+            p = POINTER(cls.CT if not hasattr(cls.CT, '__ty__') else cls.CT.__ty__())
+            if result.is_err:
+                ptr = cast(result.value, POINTER(cls.CE if not hasattr(cls.CE, '__ty__') else cls.CE.__ty__()))
+            else:
+                ptr = cast(result.value, POINTER(cls.CT if not hasattr(cls.CT, '__ty__') else cls.CT.__ty__()))
+            value = read_pointer(cls.CT, ptr, lib)
+            v = cls( result.is_err, value, lib, raw=res)
+            if isinstance(value, LibValue):
+                value.__parent__ = ref(v)
+            return v
         else:
             raise FFiError("Recieved null pointer as base result")
-    
-    def __free__(self, lib):
-        if self.__raw__ is not None:
-            pass
-            #lib.free_cresult(self.__raw__)
 
     def from_param(v):
         raise NotImplementedError('Errors as arguments are not supported')
 
     def get_ok(self) -> T:
-        return self.ok
+        return self.__value__ if self.is_ok() else None
 
     def get_err(self) -> E:
-        return self.err
+        return None if self.is_ok() else self.__value__
 
-    @property
     def is_ok(self) -> bool:
-        return self.ok is not None
+        return not self.__err__
 
-    @property
     def is_err(self) -> bool:
-        return self.err is not None
+        return self.__err__
 
     def consume(self) -> T:
-        if self.is_err:
-            raise FFiError(self.err)
-        return self.ok
+        if self.is_err():
+            raise FFiError(self.__value__)
+        return self.__value__
 
 options = {}
 class Option(LibValue):
     T = None
+    CT = None
     _Pointer_ = None
 
     def __init__(self, v: T, lib = None, raw = None):
@@ -261,26 +266,33 @@ class Option(LibValue):
         self.__raw__ = raw
 
     def __class_getitem__(cls, Ty):
-        if Ty == str:
-            Ty = LibString
+        if Ty is None:
+            raise ArgumentError("Option type cannot be none T: " + str(Ty))
+        
         if Ty in options:
             return options[Ty]
 
-        if Ty is None:
-            raise ArgumentError("Option type cannot be none T: " + str(Ty))
         ty = to_c_type(Ty)
 
         class TypedOption(Option):
             T = Ty
+            CT = ty
             _Pointer_ = POINTER(ty if not hasattr(ty, '__ty__') else ty.__ty__())
+
+            def __free__(self, lib):
+                if self.__raw__ is not None:
+                    lib.free_coption(self.__raw__)
 
         options[Ty] = TypedOption
         return TypedOption
 
     @classmethod
     def __from_result__(cls, res, lib):
-        inner = read_pointer(to_c_type(cls.T), res, lib)
-        return cls(inner, lib, res)
+        inner = read_pointer(cls.CT, res, lib)
+        v = cls(inner, lib, res)
+        if isinstance(value, LibValue):
+                value.__parent__ = ref(v)
+        return v
 
     @classmethod
     def __ty__(cls):
@@ -300,11 +312,6 @@ class Option(LibValue):
         if not isinstance(cls.T, Option) and hasattr(cls.T, 'from_param'):
             return cls._Pointer_(cls.T.from_param(v))
         raise ArgumentError('Expected ' + str(cls.T) + ' but got ' + str(type(v)))
-    
-    def __free__(self, lib):
-        if self.__raw__ is not None:
-            pass
-            #lib.free_option(self.__raw__)
 
     def unwrap(self) -> T:
        return self.__value__

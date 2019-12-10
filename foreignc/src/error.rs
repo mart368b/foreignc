@@ -1,6 +1,9 @@
+extern crate libc;
 use crate::{CResult, IntoFFi};
 use std::fmt::Display;
-use std::os::raw::c_char;
+use std::os::raw::{c_char, c_void};
+use std::marker::PhantomData;
+use std::mem;
 
 pub type FFiResult<T> = Result<T, FFiError>;
 pub struct FFiResultWrap<T>(FFiResult<T>);
@@ -14,22 +17,33 @@ impl<T> From<FFiResult<T>> for FFiResultWrap<T> {
 
 impl<T> Into<*mut CResult<T, *mut c_char>> for FFiResultWrap<T> {
     fn into(self) -> *mut CResult<T, *mut c_char> {
-        Box::into_raw(Box::new(match self.0 {
-            Ok(v) => {
-                CResult {
-                    is_err: false,
-                    ok: Box::into_raw(Box::new(v)),
-                    err: std::ptr::null_mut()
+        unsafe {
+            Box::into_raw(Box::new(match self.0 {
+                Ok(v) => {
+                    let obj_size = mem::size_of_val(&v);
+                    let ptr: *mut T = libc::malloc(obj_size) as *mut T;
+                    *ptr = v;
+                    CResult {
+                        is_err: false,
+                        value: ptr as *mut c_void,
+                        t: PhantomData,
+                        e: PhantomData,
+                    }
+                },
+                Err(e) => {
+                    let v = String::into_ffi(e.content).unwrap();
+                    let obj_size = mem::size_of_val(&v);
+                    let ptr: *mut *mut c_char = libc::malloc(obj_size) as *mut *mut c_char;
+                    *ptr = v;
+                    CResult {
+                        is_err: true,
+                        value: ptr as *mut c_void,
+                        t: PhantomData,
+                        e: PhantomData,
+                    }
                 }
-            },
-            Err(e) => {
-                CResult {
-                    is_err: true,
-                    ok: std::ptr::null_mut(),
-                    err: Box::into_raw(Box::new(String::into_ffi(e.content).unwrap()))
-                }
-            }
-        }))
+            }))
+        }
     }
 }
 

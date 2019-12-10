@@ -1,3 +1,4 @@
+extern crate libc;
 mod ffi_util;
 mod error;
 
@@ -7,6 +8,12 @@ pub use std::ffi::CString;
 pub use foreignc_derive::{
     generate_free_string, with_abi, Boxed, Json,
 };
+pub use libc::c_void;
+
+pub unsafe fn free_libc(v: *mut c_void) {
+    libc::free(v);
+}
+
 #[cfg(feature = "template")]
 pub use ffi_template::*;
 

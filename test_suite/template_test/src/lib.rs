@@ -69,8 +69,8 @@ pub fn parse_string(s: String) {
 }
 
 #[with_abi]
-pub fn get_number() -> u32 {
-    123456
+pub fn get_number() -> u64 {
+    65151
 }
 
 #[with_abi]
@@ -81,6 +81,16 @@ pub fn get_none() -> Option<u32> {
 #[with_abi]
 pub fn get_some() -> Option<String> {
    Some("Some(123456)".to_owned())
+}
+
+#[with_abi]
+pub fn get_some_string() -> Option<String> {
+   Some("Some(123456)".to_owned())
+}
+
+#[with_abi]
+pub fn get_some_number() -> Option<u64> {
+   Some(123456)
 }
 
 #[with_abi]
