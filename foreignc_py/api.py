@@ -38,6 +38,10 @@ class FfiTemplateLib(BaseLib):
     def does_panic(self) -> str:
         return self.__lib__.does_panic_ffi().consume()
 
+    @create_abi('get_nested_ffi', restype=Option[Option[Result[Option[LibString], LibString]]])
+    def get_nested(self) -> Option[Option[Result[Option[str], str]]]:
+        return self.__lib__.get_nested_ffi().consume()
+
     @create_abi('get_none_ffi', restype=Option[int])
     def get_none(self) -> Option[int]:
         return self.__lib__.get_none_ffi().consume()

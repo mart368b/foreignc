@@ -89,8 +89,8 @@ pub fn get_some_string() -> Option<String> {
 }
 
 #[with_abi]
-pub fn get_some_number() -> Option<u64> {
-   Some(123456)
+pub fn get_some_number() -> Option<u16> {
+   Some(123)
 }
 
 #[with_abi]
@@ -101,4 +101,9 @@ pub fn get_unknown() -> *mut UnknownStruct {
 #[with_abi]
 pub fn set_some(v: Option<Option<String>>) {
     println!("---{:?}", v);
+}
+
+#[with_abi]
+pub fn get_nested() -> Option<Option<Result<Option<String>, String>>> {
+    Some(Some(Ok(Some("Hello World!".to_owned()))))
 }

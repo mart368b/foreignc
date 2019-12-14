@@ -21,6 +21,7 @@ class BaseLib:
 class LibValue:
     def __init__(self, lib):
         self.__lib__ = lib
+        self.__resources__ = []
 
     @classmethod
     def __ty__(cls):
@@ -30,8 +31,12 @@ class LibValue:
     def __from_result__(cls, res, lib):
         return None
 
+    def __new_resource__ (self, res):
+        self.__resources__.append(res)
+
     def __free__(self, lib):
-        pass
+        for name, res in self.__resources__:
+            getattr(lib, name)(res)
 
     def __del__(self):
         if hasattr(self, '__lib__') and self.__lib__ is not None:
@@ -74,6 +79,8 @@ class Box(LibValue):
 
     def __free__(self, lib):
         getattr(lib, self.__free_func__())(self.__value__)
+        for name, res in self.__resources__:
+            getattr(lib, name)(res)
 
     @staticmethod
     def __free_func__() -> str:
@@ -181,6 +188,12 @@ class Result(LibValue):
         self.__err__ = is_err
         self.__value__ = value
         self.__raw__ = raw
+        if isinstance(value, LibValue):
+            if raw is not None:
+                value.__new_resource__(('free_cresult', raw))
+            self.__raw__ = None
+            for res in self.__resources__:
+                value.__new_resource__(res)
 
     def __class_getitem__(cls, TT):
         Ty, Ey = TT
@@ -206,10 +219,6 @@ class Result(LibValue):
             CE = err_ty
             _CResult_ = CResult
 
-            def __free__(self, lib):
-                if self.__raw__ is not None:
-                    lib.free_cresult(self.__raw__)
-
         results[(Ty, Ey)] = TypedResult
         return TypedResult
 
@@ -221,18 +230,27 @@ class Result(LibValue):
     def __from_result__(cls, res, lib):
         if res:
             result = res.contents
-            p = POINTER(cls.CT if not hasattr(cls.CT, '__ty__') else cls.CT.__ty__())
             if result.is_err:
                 ptr = cast(result.value, POINTER(cls.CE if not hasattr(cls.CE, '__ty__') else cls.CE.__ty__()))
             else:
                 ptr = cast(result.value, POINTER(cls.CT if not hasattr(cls.CT, '__ty__') else cls.CT.__ty__()))
             value = read_pointer(cls.CT, ptr, lib)
-            v = cls( result.is_err, value, lib, raw=res)
-            if isinstance(value, LibValue):
-                value.__parent__ = ref(v)
-            return v
+            return cls( result.is_err, value, lib, raw=ptr)
         else:
             raise FFiError("Recieved null pointer as base result")
+
+    def __free__(self, lib):
+        if self.__raw__ is not None and len(self.__resources__) is not 0:
+            print('Free result')
+            lib.free_cresult(self.__raw__)
+        for name, res in reversed(self.__resources__):
+            getattr(lib, name)(res)
+
+    def __new_resource__ (self, res):
+        if isinstance(self.__value__, LibValue):
+            self.__value__.__new_resource__(res)
+        else:
+            self.__resources__.append(res)
 
     def from_param(v):
         raise NotImplementedError('Errors as arguments are not supported')
@@ -260,10 +278,16 @@ class Option(LibValue):
     CT = None
     _Pointer_ = None
 
-    def __init__(self, v: T, lib = None, raw = None):
+    def __init__(self, value: T, lib = None, raw = None):
         super().__init__(lib)
-        self.__value__ = v
+        self.__value__ = value
         self.__raw__ = raw
+        if isinstance(value, LibValue):
+            if raw is not None:
+                value.__new_resource__(('free_coption', raw))
+            self.__raw__ = None
+            for res in self.__resources__:
+                value.__new_resource__(res)
 
     def __class_getitem__(cls, Ty):
         if Ty is None:
@@ -279,20 +303,13 @@ class Option(LibValue):
             CT = ty
             _Pointer_ = POINTER(ty if not hasattr(ty, '__ty__') else ty.__ty__())
 
-            def __free__(self, lib):
-                if self.__raw__ is not None:
-                    lib.free_coption(self.__raw__)
-
         options[Ty] = TypedOption
         return TypedOption
 
     @classmethod
     def __from_result__(cls, res, lib):
         inner = read_pointer(cls.CT, res, lib)
-        v = cls(inner, lib, res)
-        if isinstance(value, LibValue):
-                value.__parent__ = ref(v)
-        return v
+        return cls(inner, lib, res)
 
     @classmethod
     def __ty__(cls):
@@ -312,6 +329,22 @@ class Option(LibValue):
         if not isinstance(cls.T, Option) and hasattr(cls.T, 'from_param'):
             return cls._Pointer_(cls.T.from_param(v))
         raise ArgumentError('Expected ' + str(cls.T) + ' but got ' + str(type(v)))
+
+    def __new_resource__ (self, res):
+        if isinstance(self.__value__, LibValue):
+            self.__value__.__new_resource__(res)
+        else:
+            self.__resources__.append(res)
+
+    def __free__(self, lib):
+        print('free')
+        print(self.__resources__)
+        print(self.__raw__)
+
+        if self.__raw__ is not None and len(self.__resources__) is not 0:
+            lib.free_coption(self.__raw__)
+        #for name, res in self.__resources__:
+        #    getattr(lib, name)(res)
 
     def unwrap(self) -> T:
        return self.__value__

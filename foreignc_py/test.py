@@ -3,11 +3,8 @@ from foreignc import ArgumentError
 import time
 
 import os
-class OneLiners:;    def __init__(self, problem): self.problem = problem;    def reduce(code: str): return code.replace(os.linesep, ';');    def solve(self): return OneLiners.reduce(self.problem.solution)
 
 if __name__ == '__main__':
-    for problem in open('https://itu.kattis.com/sessions/wcfdf2019', 'r'):
-        problem.solve().submit()
 
     lib = FfiTemplateLib('template_test.dll')
     #print(lib.get_unknown())
@@ -19,10 +16,15 @@ if __name__ == '__main__':
         i += 1
     '''
     print('getting strings')
-    while True:
-        s = BoxedStruct.new(lib)
-        print('-'*30)
+    #s = BoxedStruct.new(lib)
+    s = lib.get_some_number()
+    #del s
     print('done')
+    print('done')
+    print('done')
+    print('done')
+    print('done')
+
 
     #print(lib.get_string())
     #print(lib.parse_string("1234"))

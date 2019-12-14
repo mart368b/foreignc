@@ -106,6 +106,7 @@ where
             let v = IntoFFi::into_ffi(v)?;
             unsafe {
                 let obj_size = mem::size_of_val(&v);
+                println!("option size: {}", obj_size);
                 let ptr: *mut U = libc::malloc(obj_size) as *mut U;
                 *ptr = v;
                 ptr
@@ -124,17 +125,18 @@ pub struct CResult<T, E>{
     pub e: PhantomData<E>,
 }
 
-unsafe impl<T, E, U, V> IntoFFi<*mut CResult<U, V>> for Result<T, E> 
+unsafe impl<T, E, U, V> IntoFFi<*mut CResult<*mut U, *mut V>> for Result<T, E> 
 where
     T: IntoFFi<U>,
     E: IntoFFi<V>,
 {
-    fn into_ffi(v: Self) -> FFiResult<*mut CResult<U, V>> {
+    fn into_ffi(v: Self) -> FFiResult<*mut CResult<*mut U, *mut V>> {
         unsafe {
             Ok(Box::into_raw(Box::new(match v {
                 Ok(v) => {
                     let v = IntoFFi::into_ffi(v)?;
                     let obj_size = mem::size_of_val(&v);
+                    println!("result size: {}", obj_size);
                     let ptr: *mut U = libc::malloc(obj_size) as *mut U;
                     *ptr = v;
                     CResult {
