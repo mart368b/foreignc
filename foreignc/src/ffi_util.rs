@@ -132,7 +132,7 @@ where
 {
     fn into_ffi(v: Self) -> FFiResult<*mut CResult<*mut U, *mut V>> {
         unsafe {
-            Ok(Box::into_raw(Box::new(match v {
+            let v = match v {
                 Ok(v) => {
                     let v = IntoFFi::into_ffi(v)?;
                     let obj_size = mem::size_of_val(&v);
@@ -159,7 +159,13 @@ where
                         e: PhantomData,
                     }
                 }
-            })))
+            };
+            
+            let obj_size = mem::size_of_val(&v);
+            let ptr = libc::malloc(obj_size) as *mut CResult<U, V>;
+            *ptr = v;
+
+            Ok(ptr)
         }
     }
 }

@@ -155,10 +155,11 @@ pub fn generate_free_string(_item: TokenStream1) -> TokenStream1 {
     output.extend::<TokenStream1>("#[no_mangle]".parse::<TokenStream1>().expect("Failed to parse no_mangle"));
     output.extend::<TokenStream1>(
         quote!(
-            pub extern "C" fn free_cresult(ptr: *mut CResult<foreignc::c_void, foreignc::c_void>) {
-                unsafe { 
-                    let s = Box::from_raw(ptr);
-                    foreignc::free_libc(s.value)
+            pub extern "C" fn free_cresult(ptr: *mut foreignc::CResult<foreignc::c_void, foreignc::c_void>) {
+                unsafe {
+                    let res = &*ptr;
+                    foreignc::free_libc(res.value);
+                    foreignc::free_libc(ptr as *mut foreignc::c_void);
                 };
             }
         )

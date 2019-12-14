@@ -18,7 +18,7 @@ impl<T> From<FFiResult<T>> for FFiResultWrap<T> {
 impl<T> Into<*mut CResult<T, *mut c_char>> for FFiResultWrap<T> {
     fn into(self) -> *mut CResult<T, *mut c_char> {
         unsafe {
-            Box::into_raw(Box::new(match self.0 {
+            let v = match self.0 {
                 Ok(v) => {
                     let obj_size = mem::size_of_val(&v);
                     let ptr: *mut T = libc::malloc(obj_size) as *mut T;
@@ -42,7 +42,13 @@ impl<T> Into<*mut CResult<T, *mut c_char>> for FFiResultWrap<T> {
                         e: PhantomData,
                     }
                 }
-            }))
+            };
+
+            let obj_size = mem::size_of_val(&v);
+            let ptr = libc::malloc(obj_size) as *mut CResult<T, *mut c_char>;
+            *ptr = v;
+
+            ptr
         }
     }
 }
