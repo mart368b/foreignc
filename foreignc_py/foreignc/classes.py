@@ -151,16 +151,34 @@ class Json(LibValue):
             return c_char_p(v.buff)
         raise ArgumentError('Expected Json ' + str(type(v)))
 
+convertion = {
+    'i8': c_int8,
+    "i16": c_int16,
+    "i32": c_int32,
+    "i64": c_int64,
+    "u8": c_uint8,
+    "u16": c_uint16,
+    "u32": c_uint32,
+    "u64": c_uint64,
+    "char": c_char,
+    int: c_int,
+    bool: c_bool,
+    float: c_float
+}
+
 def to_c_type(ty):
     if ty == str:
         return LibString
-    if ty == int:
-        return c_int
-    if ty == float:
-        return c_float
-    if ty == bool:
-        return c_bool
-    return ty
+    if ty in convertion:
+        return convertion[ty]
+    bases = [base for base in ty.__bases__]
+    while len(bases) != 0:
+        base = bases.pop()
+        if base == LibValue:
+            return ty
+        bases.extend([base for base in base.__bases__])
+
+    raise ArgumentError("Unknown type " + str(ty))
 
 def read_pointer(cls, ptr, lib):
     if ptr and ptr != 1:
@@ -235,13 +253,12 @@ class Result(LibValue):
             else:
                 ptr = cast(result.value, POINTER(cls.CT if not hasattr(cls.CT, '__ty__') else cls.CT.__ty__()))
             value = read_pointer(cls.CT, ptr, lib)
-            return cls( result.is_err, value, lib, raw=ptr)
+            return cls( result.is_err, value, lib, raw=res)
         else:
             raise FFiError("Recieved null pointer as base result")
 
     def __free__(self, lib):
-        if self.__raw__ is not None and len(self.__resources__) is not 0:
-            print('Free result')
+        if self.__raw__ is not None:
             lib.free_cresult(self.__raw__)
         for name, res in reversed(self.__resources__):
             getattr(lib, name)(res)
@@ -251,6 +268,12 @@ class Result(LibValue):
             self.__value__.__new_resource__(res)
         else:
             self.__resources__.append(res)
+
+    def __str__(self):
+        if self.is_ok():
+            return "Ok(" + str(self.__value__) + ")"
+        else:
+            return "Err(" + str(self.__value__) + ")"
 
     def from_param(v):
         raise NotImplementedError('Errors as arguments are not supported')
@@ -309,7 +332,7 @@ class Option(LibValue):
     @classmethod
     def __from_result__(cls, res, lib):
         inner = read_pointer(cls.CT, res, lib)
-        return cls(inner, lib, res)
+        return cls(inner, lib=lib, raw=res)
 
     @classmethod
     def __ty__(cls):
@@ -336,15 +359,17 @@ class Option(LibValue):
         else:
             self.__resources__.append(res)
 
-    def __free__(self, lib):
-        print('free')
-        print(self.__resources__)
-        print(self.__raw__)
+    def __str__(self):
+        if self.__value__:
+            return "Some(" + str(self.__value__) + ")"
+        else:
+            return "None"
 
+    def __free__(self, lib):
         if self.__raw__ is not None and len(self.__resources__) is not 0:
             lib.free_coption(self.__raw__)
-        #for name, res in self.__resources__:
-        #    getattr(lib, name)(res)
+        for name, res in self.__resources__:
+            getattr(lib, name)(res)
 
     def unwrap(self) -> T:
        return self.__value__

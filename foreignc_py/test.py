@@ -16,8 +16,13 @@ if __name__ == '__main__':
         i += 1
     '''
     print('getting strings')
-    #s = BoxedStruct.new(lib)
-    s = lib.get_some_number()
+
+    i = 0
+    while i < 1000000:
+        s = BoxedStruct.new(lib)
+
+        i += 1
+
     #del s
     print('done')
     print('done')

@@ -106,7 +106,6 @@ where
             let v = IntoFFi::into_ffi(v)?;
             unsafe {
                 let obj_size = mem::size_of_val(&v);
-                println!("option size: {}", obj_size);
                 let ptr: *mut U = libc::malloc(obj_size) as *mut U;
                 *ptr = v;
                 ptr
@@ -136,7 +135,6 @@ where
                 Ok(v) => {
                     let v = IntoFFi::into_ffi(v)?;
                     let obj_size = mem::size_of_val(&v);
-                    println!("result size: {}", obj_size);
                     let ptr: *mut U = libc::malloc(obj_size) as *mut U;
                     *ptr = v;
                     CResult {
@@ -162,7 +160,7 @@ where
             };
             
             let obj_size = mem::size_of_val(&v);
-            let ptr = libc::malloc(obj_size) as *mut CResult<U, V>;
+            let ptr = libc::malloc(obj_size) as *mut CResult<*mut U, *mut V>;
             *ptr = v;
 
             Ok(ptr)

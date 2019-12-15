@@ -87,8 +87,8 @@ impl PythonTypes {
             RustTypes::Option(s) => PythonTypes::Option(Box::new(PythonTypes::from_rust(s, structs))),
             RustTypes::Result(ok, err) => PythonTypes::Result(Box::new(PythonTypes::from_rust(ok, structs)), Box::new(PythonTypes::from_rust(err, structs))),
             RustTypes::Primitive(s) => match s.as_str() {
-                "i8" | "i16" | "i32" | "i64" | "i128" | "u8" | "u16"
-                | "u32" | "u64" | "u128" | "char" => PythonTypes::Primitive("int".to_owned()),
+                "i8" | "i16" | "i32" | "i64" | "u8" | "u16"
+                | "u32" | "u64" | "char" => PythonTypes::Primitive(format!("'{}'", s.as_str())),
                 "f32" | "f64" => PythonTypes::Primitive("float".to_owned()),
                 "bool" => PythonTypes::Primitive("bool".to_owned()),
                 _ => unimplemented!()

@@ -178,7 +178,7 @@ pub fn generate_free_string(_item: TokenStream1) -> TokenStream1 {
 
     #[cfg(feature = "template")]
     {
-        let free = RustFreeFunction {
+        let free_string = RustFreeFunction {
             ty: RustTypes::String,
             func: RustFunction {
                 name: "free_string".to_owned(),
@@ -192,7 +192,7 @@ pub fn generate_free_string(_item: TokenStream1) -> TokenStream1 {
         };
 
         throw_err!(
-            add_to_path(free)
+            add_to_path(free_string)
                 .map_err(|e| syn::Error::new(Span::call_site(), &e))
         );
     }
@@ -314,11 +314,8 @@ pub fn derive_json(input: TokenStream1) -> TokenStream1 {
     quote!(
         unsafe impl foreignc::FromFFi<*mut #name> for #name{
             fn from_ffi(p: *mut #name) -> foreignc::FFiResult<Self> {
-                println!("from c_char");
                 let s = foreignc::FromFFi::from_ffi(p as *mut std::os::raw::c_char);
-                println!("--{:?}--", s);
                 let json = serde_json::from_str(s?);
-                println!("--{:?}--", json);
                 Ok(json?)
             }
         }

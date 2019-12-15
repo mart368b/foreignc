@@ -10,12 +10,6 @@ pub struct BoxedStruct{
     value: String
 }
 
-impl Drop for BoxedStruct {
-    fn drop(&mut self) {
-        println!("Dropping: {:?}", self);
-    }
-}
-
 #[derive(Json, Serialize, Deserialize, Debug)]
 pub struct JsonStruct{
     name: String,
