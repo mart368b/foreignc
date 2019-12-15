@@ -6,10 +6,12 @@ use std::marker::PhantomData;
 use crate::*;
 use std::mem;
 
+/// Convert a rust value into ffi safe counter part
 pub unsafe trait IntoFFi<PtrOut> {
     fn into_ffi(v: Self) -> FFiResult<PtrOut>;
 }
 
+// Convert a unsafe value into a safe rust value
 pub unsafe trait FromFFi<PtrIn> 
 where
     Self: Sized
@@ -116,6 +118,7 @@ where
     }
 }
 
+/// A ffi safe representation of a result
 #[repr(C)]
 pub struct CResult<T, E>{
     pub is_err: bool,

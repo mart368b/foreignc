@@ -1,3 +1,11 @@
+/// # foreignc_derive
+/// Provide the following macros
+///  - #[derive(Box)] - mark a struct as using a box accross the ffi barrier
+///  - #[derive(Json)] - mark a struct as using a json accross the ffi barrier
+///  - #[with_abi] - auto generate the abi of all methods in a impl block or a single function
+///  - generate_free_methods - create functions free_string, free_coption, free_cresult
+
+
 extern crate proc_macro;
 
 #[macro_use]
@@ -137,7 +145,7 @@ fn convert_item(item: ItemFn) -> TokenStream1 {
 }
 
 #[proc_macro]
-pub fn generate_free_string(_item: TokenStream1) -> TokenStream1 {
+pub fn generate_free_methods(_item: TokenStream1) -> TokenStream1 {
     let mut output = TokenStream1::new();
 
     output.extend::<TokenStream1>("#[no_mangle]".parse::<TokenStream1>().expect("Failed to parse no_mangle"));

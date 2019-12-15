@@ -1,8 +1,7 @@
 pub use foreignc::*;
-use std::panic;
 use serde::{Deserialize, Serialize};
 
-generate_free_string!();
+generate_free_methods!();
 
 #[derive(Boxed, Serialize, Deserialize, Debug)]
 pub struct BoxedStruct{

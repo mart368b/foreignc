@@ -6,8 +6,28 @@ use std::marker::PhantomData;
 use std::mem;
 
 pub type FFiResult<T> = Result<T, FFiError>;
-pub struct FFiResultWrap<T>(FFiResult<T>);
 
+/// Representation of a error during traversal of the ffi barrier. 
+/// This can be caused from everything from null pointer exceptions to the program panicing
+#[derive(Debug)]
+pub struct FFiError {
+    pub content: String
+}
+
+impl<T> From<T> for FFiError 
+where
+    T: Display
+{
+    fn from(v: T) -> FFiError {
+        println!("Creating error {}", v);
+        FFiError {
+            content: format!("{}", v)
+        }
+    }
+}
+
+
+pub struct FFiResultWrap<T>(FFiResult<T>);
 impl<T> From<FFiResult<T>> for FFiResultWrap<T> {
     fn from(v: FFiResult<T>) -> Self {
         Self(v)
@@ -49,23 +69,6 @@ impl<T> Into<*mut CResult<T, *mut c_char>> for FFiResultWrap<T> {
             *ptr = v;
 
             ptr
-        }
-    }
-}
-
-#[derive(Debug)]
-pub struct FFiError {
-    pub content: String
-}
-
-impl<T> From<T> for FFiError 
-where
-    T: Display
-{
-    fn from(v: T) -> FFiError {
-        println!("Creating error {}", v);
-        FFiError {
-            content: format!("{}", v)
         }
     }
 }

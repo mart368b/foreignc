@@ -1,3 +1,6 @@
+/// # ffi-template
+/// Allow for generation of python apis using a simple representation of rust code
+
 mod rust_types;
 mod py_types;
 mod py_gen;

@@ -46,7 +46,7 @@ impl RustContext {
             
             // Throw error
             if !has_free_string {
-                return Err(TemplateError::MessageErr("Returned string without methods of deletion please add free_string a function or use foreignc_derive::generate_free_string to generate it".to_owned()))
+                return Err(TemplateError::MessageErr("Returned string without methods of deletion please add free_string a function or use foreignc_derive::generate_free_methods to generate it".to_owned()))
             }
         }
         
