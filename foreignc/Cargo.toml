@@ -3,11 +3,12 @@ name = "foreignc"
 version = "0.1.0"
 authors = ["Martin Pinholt <mapi@itu.dk>"]
 edition = "2018"
+repository = "https://github.com/mart368b/foreignc"
 
 [dependencies]
 libc = "0.2.65"
-foreignc_derive = {path = "../foreignc_derive"}
-ffi_template = {path = "../ffi-template", optional = true}
+foreignc_derive = {path = "../foreignc_derive", version = "0.1.0"}
+ffi_template = {path = "../ffi-template", optional = true, version = "0.1.0"}
 
 [features]
 template = ["foreignc_derive/template", "ffi_template"]
