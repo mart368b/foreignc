@@ -11,6 +11,8 @@
 //! 
 //! ```rust
 //! # pub use foreignc::*;
+//! 
+//! // Create free methods
 //! generate_free_methods!();
 //! 
 //! // Evaluates to hello_world() -> CResult<()>
@@ -62,9 +64,9 @@
 //! 
 //! fn main() {
 //!     // Get all the abis that have been created
-//!     let resource = get_package_dir()?;
+//!     let resource = get_package_dir().unwrap();
 //!     // Create the python api
-//!     resource.generate_python_api(Path::new("api.py"), None).unwrap();
+//!     resource.generate_python_api("api.py", None).unwrap();
 //! }
 //! ```
 //! 
@@ -146,8 +148,8 @@
 //! 
 //! To parse custom struct accross the ffi barrier use Boxed or Json as such
 //! ```rust
-//! # pub use foreignc::*;
-//! # generate_free_methods!();
+//! pub use foreignc::*;
+//! generate_free_methods!();
 //! pub use serde::{Serialize, Deserialize};
 //!    
 //! #[derive(Boxed)]
@@ -155,7 +157,7 @@
 //!     value: u32
 //! }
 //! 
-//! // Wil auto generate free method free_BoxedCounter
+//! // Wil auto generate free method free_boxed_counter
 //! 
 //! #[with_abi]
 //! impl BoxedCounter {
@@ -188,7 +190,7 @@
 //!  - free_coption(ptr: *mut COption)
 //!  - free_cresult(ptr: *mut CResult)
 //! 
-//! Boxed structs will auto generate a free method using the following convention free_{struct name}
+//! Boxed structs will auto generate a free method using the following convention free_{to_snake_case(struct name)}
 
 extern crate libc;
 mod ffi_util;

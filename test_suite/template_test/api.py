@@ -34,33 +34,29 @@ class FfiTemplateLib(BaseLib):
     def __init__(self, src: str):
         super().__init__(src)
 
-    @create_abi('does_panic_ffi', restype=LibString)
-    def does_panic(self) -> str:
-        return self.__lib__.does_panic_ffi().consume()
+    @create_abi('get_err_ffi', restype=Result[LibString, LibString])
+    def get_err(self) -> Result[str, str]:
+        return self.__lib__.get_err_ffi().consume()
 
-    @create_abi('get_nested_ffi', restype=Option[Option[Result[Option[LibString], LibString]]])
-    def get_nested(self) -> Option[Option[Result[Option[str], str]]]:
+    @create_abi('get_nested_combined_ffi', restype=Option[Option[Result[Option[LibString], LibString]]])
+    def get_nested_combined(self) -> Option[Option[Result[Option[str], str]]]:
+        return self.__lib__.get_nested_combined_ffi().consume()
+
+    @create_abi('get_nested_ffi', restype=Option[Option[Option[LibString]]])
+    def get_nested(self) -> Option[Option[Option[str]]]:
         return self.__lib__.get_nested_ffi().consume()
 
-    @create_abi('get_none_ffi', restype=Option['u32'])
-    def get_none(self) -> Option['u32']:
+    @create_abi('get_none_ffi', restype=Option['u64'])
+    def get_none(self) -> Option['u64']:
         return self.__lib__.get_none_ffi().consume()
 
-    @create_abi('get_number_ffi', restype='u64')
-    def get_number(self) -> 'u64':
-        return self.__lib__.get_number_ffi().consume()
+    @create_abi('get_ok_ffi', restype=Result[LibString, LibString])
+    def get_ok(self) -> Result[str, str]:
+        return self.__lib__.get_ok_ffi().consume()
 
-    @create_abi('get_some_ffi', restype=Option[LibString])
-    def get_some(self) -> Option[str]:
+    @create_abi('get_some_ffi', restype=Option['u64'])
+    def get_some(self) -> Option['u64']:
         return self.__lib__.get_some_ffi().consume()
-
-    @create_abi('get_some_number_ffi', restype=Option['u16'])
-    def get_some_number(self) -> Option['u16']:
-        return self.__lib__.get_some_number_ffi().consume()
-
-    @create_abi('get_some_string_ffi', restype=Option[LibString])
-    def get_some_string(self) -> Option[str]:
-        return self.__lib__.get_some_string_ffi().consume()
 
     @create_abi('get_string_ffi', restype=LibString)
     def get_string(self) -> str:
@@ -70,10 +66,10 @@ class FfiTemplateLib(BaseLib):
     def get_unknown(self) -> UnknownStruct:
         return self.__lib__.get_unknown_ffi().consume()
 
-    @create_abi('parse_string_ffi', argtypes=(LibString,))
-    def parse_string(self, s: str) :
-        return self.__lib__.parse_string_ffi(s).consume()
+    @create_abi('set_nested_ffi', argtypes=(Option[Option['u32']],))
+    def set_nested(self, v: Option[Option['u32']]) :
+        return self.__lib__.set_nested_ffi(v).consume()
 
-    @create_abi('set_some_ffi', argtypes=(Option[Option[LibString]],))
-    def set_some(self, v: Option[Option[str]]) :
-        return self.__lib__.set_some_ffi(v).consume()
+    @create_abi('set_option_ffi', argtypes=(Option['u32'],))
+    def set_option(self, v: Option['u32']) :
+        return self.__lib__.set_option_ffi(v).consume()

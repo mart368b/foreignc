@@ -96,11 +96,9 @@ where
             }
         }
         Type::Ptr(v) => {
-            println!("{:?}", v);
             Ok(RustTypes::Ptr(v.elem.to_token_stream().to_string()))
         },
         _ => {
-            println!("shjdasjdhaso");
             Ok(RustTypes::Ptr("c_void".to_owned()))
         },
     }

@@ -1,9 +1,9 @@
 mod base_test;
-mod impl_test;
+mod box_test;
 mod serde_test;
-mod simple_error;
 
 pub use foreignc::*;
-pub use simple_error::SimpleError;
+pub use box_test::*;
+pub use serde_test::*;
 
 generate_free_methods!();

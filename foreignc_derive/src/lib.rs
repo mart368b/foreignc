@@ -5,7 +5,6 @@
 ///  - #[with_abi] - auto generate the abi of all methods in a impl block or a single function
 ///  - generate_free_methods - create functions free_string, free_coption, free_cresult
 
-
 extern crate proc_macro;
 
 #[macro_use]

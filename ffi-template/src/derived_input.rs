@@ -76,7 +76,7 @@ where
     let body = serde_json::to_string(&meta)?;
     let path = get_file_path(filename, &body)?;
     if !path.exists() {
-        let mut w = open_file(path)?;
+        let mut w = open_file(path).unwrap();
         let bbody = body.as_bytes();
         w.write_all(bbody)?;
     }

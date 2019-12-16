@@ -17,7 +17,7 @@ fn initialize() -> RustContext {
                         ty: RustTypes::Primitive("bool".to_owned())
                     }
                 ],
-                output: Some(RustTypes::String)
+                output: Some(RustTypes::Primitive("u32".to_owned()))
             },
             RustFunction {
                 name: "BSomeFunc".to_owned(),
@@ -32,7 +32,7 @@ fn initialize() -> RustContext {
                         ty: RustTypes::Primitive("bool".to_owned())
                     }
                 ],
-                output: Some(RustTypes::String)
+                output: Some(RustTypes::Primitive("u32".to_owned()))
             }
         ],
         free_funcs: Vec::new(),

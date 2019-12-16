@@ -19,7 +19,6 @@ where
     T: Display
 {
     fn from(v: T) -> FFiError {
-        println!("Creating error {}", v);
         FFiError {
             content: format!("{}", v)
         }

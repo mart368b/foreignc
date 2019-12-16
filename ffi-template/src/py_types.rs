@@ -73,7 +73,6 @@ impl PythonTypes {
     pub fn from_rust<T: AsRef<RustTypes>>(ty: T, structs: &mut Vec<RustStructure>) -> PythonTypes {
         match ty.as_ref() {
             RustTypes::Ptr(s) => {
-                println!("|{}| {:?}", s, structs.iter().map(|s| s.self_ty.to_owned()).collect::<Vec<String>>());
                 if structs.iter().find(|st| &st.self_ty == s).is_none() {
                     structs.push(RustStructure {
                         self_ty: s.to_owned(),

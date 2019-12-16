@@ -1,14 +1,23 @@
 use crate::*;
 use serde::{Deserialize, Serialize};
 
-#[derive(Deserialize, Serialize, Json, Debug)]
-pub struct SerdeStruct {
-    value: Vec<String>,
+#[derive(Json, Deserialize, Serialize)]
+pub struct JsonStruct {
+    acc: u32,
 }
 
 #[with_abi]
-pub fn new_serde_struct() -> SerdeStruct {
-    SerdeStruct {
-        value: vec!["Hello".to_owned(), "World!".to_owned()],
+impl JsonStruct {
+    pub fn new() -> JsonStruct {
+        JsonStruct { acc: 0 }
+    }
+
+    pub fn inc(mut self) -> JsonStruct {
+        self.acc += 1;
+        self
+    }
+
+    pub fn get(self) -> u32 {
+        self.acc
     }
 }

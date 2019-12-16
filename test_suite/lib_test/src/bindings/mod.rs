@@ -1,1 +1,1 @@
-pub mod derive_lib;
+pub mod derive_lib_bind;

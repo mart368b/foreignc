@@ -1,7 +1,7 @@
 [package]
 name = "derive_lib"
 version = "0.1.0"
-authors = ["mart368b <martinpinholt@hotmail.com>"]
+authors = ["Martin Pinholt <mapi@itu.dk>"]
 edition = "2018"
 
 [dependencies]
