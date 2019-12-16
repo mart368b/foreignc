@@ -13,11 +13,11 @@ proc-macro2 = "1.0.6"
 serde = { version = "1.0.102", optional=true, features = ["derive"] }
 serde_json = {version = "1.0.41", optional=true}
 
-ffi_template = {path = "../ffi-template", optional = true, version = "0.1.0"}
+foreignc_template = {path = "../foreignc_template", optional = true, version = "0.1.0"}
 foreignc_util = {path = "../foreignc_util", version = "0.1.0"}
 
 [features]
-template = ["serde", "serde_json", "ffi_template"]
+template = ["serde", "serde_json", "foreignc_template"]
 
 [lib]
 proc-macro = true

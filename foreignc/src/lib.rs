@@ -206,12 +206,12 @@ pub use libc::c_void;
 pub use libc::free as free_libc;
 
 #[cfg(feature = "template")]
-pub use ffi_template::*;
+pub use foreignc_template::*;
 
 #[cfg(feature = "template")]
-use ffi_template::derived_input::{get_dir_path};
+use foreignc_template::derived_input::{get_dir_path};
 #[cfg(feature = "template")]
-use ffi_template::RustContext;
+use foreignc_template::RustContext;
 
 #[cfg(feature = "template")]
 /// Get the parsed abis from the current crate

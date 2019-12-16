@@ -1,4 +1,4 @@
-use ffi_template::*;
+use foreignc_template::*;
 use std::path::Path;
 
 fn initialize() -> RustContext {

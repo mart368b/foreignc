@@ -1,4 +1,4 @@
-/// # ffi-template
+/// # foreignc_template
 /// Allow for generation of python apis using a simple representation of rust code
 
 mod rust_types;

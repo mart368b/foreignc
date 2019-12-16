@@ -30,8 +30,8 @@ mod template;
 #[cfg(feature = "template")]
 mod _template {
     pub use crate::template::*;
-    pub use ffi_template::derived_input::*;
-    pub use ffi_template::*;
+    pub use foreignc_template::derived_input::*;
+    pub use foreignc_template::*;
 }
 #[cfg(feature = "template")]
 use _template::*;

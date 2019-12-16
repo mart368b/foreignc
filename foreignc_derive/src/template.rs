@@ -1,7 +1,7 @@
 use super::error::DResult;
 use proc_macro2::Span;
 use syn::spanned::Spanned;
-pub use ffi_template::{RustArgument, RustFunction, RustStructure, RustTypes};
+pub use foreignc_template::{RustArgument, RustFunction, RustStructure, RustTypes};
 use syn::*;
 use quote::ToTokens;
 use core::borrow::Borrow;

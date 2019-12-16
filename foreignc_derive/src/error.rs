@@ -1,6 +1,6 @@
 use proc_macro2::TokenStream;
 #[cfg(feature = "template")]
-use ffi_template::TemplateError;
+use foreignc_template::TemplateError;
 use foreignc_util::impl_from;
 
 #[derive(Debug)]
