@@ -1,17 +1,17 @@
 [package]
 name = "foreignc_template"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Martin Pinholt <mapi@itu.dk>"]
 edition = "2018"
 build = "build.rs"
-include = ["templates/**/*"]
+include = ["templates/**/*", "build.rs", "src/**/*"]
 repository = "https://github.com/mart368b/foreignc"
-license-file = "../LICENSE"
-description = ""
+license = "MIT OR Apache-2.0"
+description = "Templating language for the foreignc crate"
 
 [dependencies]
 tera = "0.11.20"
-foreignc_util = {path = "../foreignc_util", version = "0.1.0"}
+foreignc_util = {path = "../foreignc_util", version = "0.1.1"}
 serde = { version = "1.0.102", features = ["derive"] }
 serde_json = "1.0.41"
 rand = "0.7.2"

@@ -1,11 +1,11 @@
 [package]
 name = "foreignc_util"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Martin Pinholt <mapi@itu.dk>"]
 edition = "2018"
 repository = "https://github.com/mart368b/foreignc"
-license-file = "../LICENSE"
-description = ""
+license = "MIT OR Apache-2.0"
+description = "Provides utilities for error handling in foreignc"
 
 [lib]
 name = "foreignc_util"

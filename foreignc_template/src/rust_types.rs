@@ -84,10 +84,10 @@ pub enum RustTypes {
 impl RustTypes {
     pub fn is_string(&self) -> bool {
         match self {
-            RustTypes::Ptr(s) => false,
+            RustTypes::Ptr(_) => false,
             RustTypes::Option(s) => s.is_string(),
             RustTypes::Result(ok, err) => ok.is_string() || err.is_string(),
-            RustTypes::Primitive(s) => false,
+            RustTypes::Primitive(_) => false,
             RustTypes::String => true,
         }
     }

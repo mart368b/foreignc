@@ -1,15 +1,15 @@
 [package]
 name = "lib_test"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Martin Pinholt <mapi@itu.dk>"]
 edition = "2018"
 repository = "https://github.com/mart368b/foreignc"
-license-file = "../LICENSE"
+license = "MIT OR Apache-2.0"
 description = ""
 
 [dependencies]
-derive_lib = {path = "../derive_lib", version = "0.1.0"}
-foreignc = {path = "../../foreignc", version = "0.1.0"}
+derive_lib = {path = "../derive_lib", version = "0.1.1"}
+foreignc = {path = "../../foreignc", version = "0.1.1"}
 
 [lib]
 name = "lib_test"

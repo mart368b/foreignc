@@ -1,16 +1,16 @@
 [package]
 name = "foreignc"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Martin Pinholt <mapi@itu.dk>"]
 edition = "2018"
 repository = "https://github.com/mart368b/foreignc"
-license-file = "../LICENSE"
-description = ""
+license = "MIT OR Apache-2.0"
+description = "Auto generate ffi abis directly from rust code"
 
 [dependencies]
 libc = "0.2.65"
-foreignc_derive = {path = "../foreignc_derive", version = "0.1.0"}
-foreignc_template = {path = "../foreignc_template", optional = true, version = "0.1.0"}
+foreignc_derive = {path = "../foreignc_derive", version = "0.1.1"}
+foreignc_template = {path = "../foreignc_template", optional = true, version = "0.1.1"}
 
 [features]
 template = ["foreignc_derive/template", "foreignc_template"]
