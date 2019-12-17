@@ -5,128 +5,11 @@
 //!  - Macros for auto generating ffi abis and cleanup methods
 //!  - Functions for auto generate the recieving end of the ffi abi
 //!     - Currently only python is supported
-//! 
-//! # Quick start
-//! ## Example
-//! 
-//! ```rust
-//! # pub use foreignc::*;
-//! 
-//! // Create free methods
-//! generate_free_methods!();
-//! 
-//! // Evaluates to hello_world() -> CResult<()>
-//! #[with_abi]
-//! pub fn hello_world() {
-//!     println!("Hello World");
-//! }
-//! 
-//! 
-//! #[derive(Boxed, Debug)]
-//! pub struct BoxedCounter{
-//!     value: u32
-//! }
-//! 
-//! #[with_abi]
-//! impl BoxedCounter {
-//!     // Evaluates to new_boxed_counter() -> CResult<*mut BoxedCounter>
-//!     pub fn new() -> BoxedCounter{
-//!         BoxedCounter {
-//!             value: 0
-//!         }
-//!     }
-//! 
-//!     // Evaluates to inc_boxed_counter(*mut BoxedCounter) -> CResult<()>
-//!     pub fn inc(&mut self) {
-//!         self.value += 1;
-//!     }
-//! 
-//!     // Evaluates to inc_boxed_counter(*mut BoxedCounter) -> CResult<()>
-//!     pub fn display(&self) {
-//!         println!("{:?}", self);
-//!     }
-//! }
-//! ```
-//! 
-//! The above example will generate a ffi abi, that when called returns a CResult indicating wether the call ended succesfully or not.
-//! When arguments are parsed parsed to the function the FromFFi trait is used to convert from a unsafe value into a safe one
-//! When values are returned IntoFFi is used, to convert the type into a ffi safe value.
-//! 
-//! ## Templating
-//! using the feature 'template' it is possible to auto generate the recieving side of the ffi.
-//! 
-//! ### Example
-//! add `build = "build.rs"` to the package section of cargo.toml
-//! 
-//! ***build.rs***
-//! ```rust
-//! use foreignc::get_package_dir;
-//! 
-//! fn main() {
-//!     // Get all the abis that have been created
-//!     let resource = get_package_dir().unwrap();
-//!     // Create the python api
-//!     resource.generate_python_api("api.py", None).unwrap();
-//! }
-//! ```
-//! 
-//! after running ```cargo build``` a api.py file is created that looks like this:
-//! 
-//! ```python
-//! from __future__ import annotations
-//! from foreignc import *
-//! 
-//! class BoxedCounter(Box):
-//!     @staticmethod
-//!     def __free_func__() -> str:
-//!         return 'free_boxed_counter'
-//! 
-//!     @create_abi('new_boxed_counter', restype='BoxedCounter')
-//!     def new(lib: BaseLib) -> BoxedCounter:
-//!         return lib.__lib__.new_boxed_counter().consume()
-//! 
-//!     @create_abi('inc_boxed_counter', argtypes=('BoxedCounter',))
-//!     def inc(self) :
-//!         return self.__lib__.inc_boxed_counter(self).consume()
-//! 
-//!     @create_abi('display_boxed_counter', argtypes=('BoxedCounter',))
-//!     def display(self) :
-//!         return self.__lib__.display_boxed_counter(self).consume()
-//! 
-//! submit_type('BoxedCounter', BoxedCounter)
-//! 
-//! class MyCrateNameLib(BaseLib):
-//!     def __init__(self, src: str):
-//!         super().__init__(src)
-//! 
-//!     @create_abi('hello_world_ffi')
-//!     def hello_world(self) :
-//!         return self.__lib__.hello_world_ffi().consume()
-//! ```
-//! 
-//! Then to run using python:
-//!  1. install foreignc `pip install foreignc`
-//!  2. Use the api
-//! ```python
-//! from api import MyCrateNameLib, BoxedCounter
-//! 
-//! library_path = "C:/Somepath/file.dll"
-//! lib = MyCrateNameLib(library_path)
-//! 
-//! # Call hello world
-//! lib.hello_world()
-//! 
-//! counter = BoxedCounter(lib)
-//! 
-//! # prints 0
-//! counter.display()
-//! counter.inc()
-//! 
-//! # prints 1
-//! counter.display()
-//! 
-//! # BoxedCounter droped when the garbage collector run
-//! ```
+
+//! # Templating
+//! Using the feature 'template' it is possible to auto generate the recieving side of the ffi.
+//! This will also add two new functions get_package_dir and get_parsed_dir. Both functions return a representation of the current ffi api
+//!
 //! 
 //! # Default types
 //! ## Primititve types
@@ -145,42 +28,7 @@
 //! - String (will be converted to a CString)
 //! 
 //! # Custom Structs
-//! 
-//! To parse custom struct accross the ffi barrier use Boxed or Json as such
-//! ```rust
-//! pub use foreignc::*;
-//! generate_free_methods!();
-//! pub use serde::{Serialize, Deserialize};
-//!    
-//! #[derive(Boxed)]
-//! pub struct BoxedCounter{
-//!     value: u32
-//! }
-//! 
-//! // Wil auto generate free method free_boxed_counter
-//! 
-//! #[with_abi]
-//! impl BoxedCounter {
-//!     pub fn inc(&mut self) {
-//!         self.value += 1;
-//!     }
-//! }
-//! 
-//! #[derive(Json, Serialize, Deserialize)]
-//! pub struct JsonCounter{
-//!     value: u32
-//! }
-//! 
-//! impl JsonCounter {
-//!     pub fn inc(mut self) -> JsonCounter {
-//!         self.value += 1;
-//!         self
-//!     }
-//! }
-//! ```
-//! 
-//! Boxed structs are wrapped in a Box that stores the struct on the heap.
-//! Json converts the struct to a string using serde everytime it needs to parse the ffi barrier
+//! Custom types can be implemented either by using the IntoFFi, FromFFi trait or the Boxed, Json macro.
 //! 
 //! # Safety
 //! As a rule of thumb, all allocated memory needs too be unallocated by the creator. 
@@ -191,6 +39,8 @@
 //!  - free_cresult(ptr: *mut CResult)
 //! 
 //! Boxed structs will auto generate a free method using the following convention free_{to_snake_case(struct name)}
+//! 
+//! For more information see the [![git repository]](https://github.com/mart368b/foreignc)
 
 extern crate libc;
 mod ffi_util;

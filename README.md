@@ -1,6 +1,5 @@
 # Foreignc 
 
-[![Build Status](https://api.travis-ci.com/mart368b/foreignc.svg?branch=master)](https://travis-ci.com/mart368b/foreignc)
 [![Latest Version](https://img.shields.io/crates/v/foreignc.svg)](https://crates.io/crates/foreignc)
 [![Rust Documentation](https://img.shields.io/badge/api-rustdoc-blue.svg)](https://docs.rs/foreignc)
 
