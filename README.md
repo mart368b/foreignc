@@ -1,4 +1,9 @@
-# Foreignc
+# Foreignc 
+
+[![Build Status](https://api.travis-ci.com/mart368b/foreignc.svg?branch=master)](https://travis-ci.com/mart368b/foreignc)
+[![Latest Version](https://img.shields.io/crates/v/foreignc.svg)](https://crates.io/crates/foreignc)
+[![Rust Documentation](https://img.shields.io/badge/api-rustdoc-blue.svg)](https://docs.rs/foreignc)
+
 Foreignc is a framework for auto generating a safe ffi abi for rust methods.
 The main advantage if foreignc is that allows for easy deplayment and maintenance of safe ffi abi.
 The crate is made up of two parts.
