@@ -5,6 +5,7 @@ authors = ["Martin Pinholt <mapi@itu.dk>"]
 edition = "2018"
 repository = "https://github.com/mart368b/foreignc"
 license-file = "../LICENSE"
+description = ""
 
 [dependencies]
 foreignc = {path = "../../foreignc", features = ["template"], version = "0.1.0"}

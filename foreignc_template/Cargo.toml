@@ -7,6 +7,7 @@ build = "build.rs"
 include = ["templates/**/*"]
 repository = "https://github.com/mart368b/foreignc"
 license-file = "../LICENSE"
+description = ""
 
 [dependencies]
 tera = "0.11.20"

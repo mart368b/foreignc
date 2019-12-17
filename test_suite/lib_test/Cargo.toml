@@ -5,6 +5,7 @@ authors = ["Martin Pinholt <mapi@itu.dk>"]
 edition = "2018"
 repository = "https://github.com/mart368b/foreignc"
 license-file = "../LICENSE"
+description = ""
 
 [dependencies]
 derive_lib = {path = "../derive_lib", version = "0.1.0"}
