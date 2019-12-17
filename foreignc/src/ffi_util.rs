@@ -1,10 +1,10 @@
 extern crate libc;
 use crate::FFiResult;
-use std::ffi::CStr;
-use std::os::raw::c_char;
-use std::marker::PhantomData;
 use crate::*;
+use std::ffi::CStr;
+use std::marker::PhantomData;
 use std::mem;
+use std::os::raw::c_char;
 
 /// Convert a rust value into ffi safe counter part
 pub unsafe trait IntoFFi<PtrOut> {
@@ -12,9 +12,9 @@ pub unsafe trait IntoFFi<PtrOut> {
 }
 
 // Convert a unsafe value into a safe rust value
-pub unsafe trait FromFFi<PtrIn> 
+pub unsafe trait FromFFi<PtrIn>
 where
-    Self: Sized
+    Self: Sized,
 {
     fn from_ffi(v: PtrIn) -> FFiResult<Self>;
 }
@@ -31,20 +31,7 @@ macro_rules! impl_direct {
     )+}
 }
 
-impl_direct![
-    bool,
-    (),
-    i8,
-    u8,
-    i16,
-    u16,
-    i32,
-    u32,
-    i64,
-    u64,
-    f32,
-    f64
-];
+impl_direct![bool, (), i8, u8, i16, u16, i32, u32, i64, u64, f32, f64];
 
 unsafe impl<T> IntoFFi<*mut T> for *mut T {
     fn into_ffi(v: Self) -> FFiResult<*mut T> {
@@ -66,9 +53,7 @@ unsafe impl IntoFFi<*mut c_char> for &str {
 
 unsafe impl<'a> FromFFi<*mut c_char> for &'a str {
     fn from_ffi(v: *mut c_char) -> FFiResult<&'a str> {
-        Ok(unsafe {
-            CStr::from_ptr(v)
-        }.to_str()?)
+        Ok(unsafe { CStr::from_ptr(v) }.to_str()?)
     }
 }
 
@@ -90,16 +75,16 @@ where
     T: FromFFi<U> + std::fmt::Debug,
 {
     fn from_ffi(v: *mut U) -> FFiResult<Self> {
-        unsafe{
+        unsafe {
             match v.as_mut() {
                 Some(ptr) => Ok(Some(T::from_ffi(std::ptr::read(ptr))?)),
-                None => Ok(None)
+                None => Ok(None),
             }
         }
     }
 }
 
-unsafe impl<T, U> IntoFFi<*mut U> for Option<T> 
+unsafe impl<T, U> IntoFFi<*mut U> for Option<T>
 where
     T: IntoFFi<U>,
 {
@@ -120,14 +105,14 @@ where
 
 /// A ffi safe representation of a result
 #[repr(C)]
-pub struct CResult<T, E>{
+pub struct CResult<T, E> {
     pub is_err: bool,
     pub value: *mut c_void,
     pub t: PhantomData<T>,
     pub e: PhantomData<E>,
 }
 
-unsafe impl<T, E, U, V> IntoFFi<*mut CResult<*mut U, *mut V>> for Result<T, E> 
+unsafe impl<T, E, U, V> IntoFFi<*mut CResult<*mut U, *mut V>> for Result<T, E>
 where
     T: IntoFFi<U>,
     E: IntoFFi<V>,
@@ -146,13 +131,13 @@ where
                         t: PhantomData,
                         e: PhantomData,
                     }
-                },
+                }
                 Err(v) => {
                     let v = IntoFFi::into_ffi(v)?;
                     let obj_size = mem::size_of_val(&v);
                     let ptr: *mut V = libc::malloc(obj_size) as *mut V;
                     *ptr = v;
-    
+
                     CResult {
                         is_err: true,
                         value: ptr as *mut c_void,
@@ -161,7 +146,7 @@ where
                     }
                 }
             };
-            
+
             let obj_size = mem::size_of_val(&v);
             let ptr = libc::malloc(obj_size) as *mut CResult<*mut U, *mut V>;
             *ptr = v;

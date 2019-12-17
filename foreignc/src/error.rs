@@ -1,30 +1,29 @@
 extern crate libc;
 use crate::{CResult, IntoFFi};
 use std::fmt::Display;
-use std::os::raw::{c_char, c_void};
 use std::marker::PhantomData;
 use std::mem;
+use std::os::raw::{c_char, c_void};
 
 pub type FFiResult<T> = Result<T, FFiError>;
 
-/// Representation of a error during traversal of the ffi barrier. 
+/// Representation of a error during traversal of the ffi barrier.
 /// This can be caused from everything from null pointer exceptions to the program panicing
 #[derive(Debug)]
 pub struct FFiError {
-    pub content: String
+    pub content: String,
 }
 
-impl<T> From<T> for FFiError 
+impl<T> From<T> for FFiError
 where
-    T: Display
+    T: Display,
 {
     fn from(v: T) -> FFiError {
         FFiError {
-            content: format!("{}", v)
+            content: format!("{}", v),
         }
     }
 }
-
 
 pub struct FFiResultWrap<T>(FFiResult<T>);
 impl<T> From<FFiResult<T>> for FFiResultWrap<T> {
@@ -32,7 +31,6 @@ impl<T> From<FFiResult<T>> for FFiResultWrap<T> {
         Self(v)
     }
 }
-
 
 impl<T> Into<*mut CResult<T, *mut c_char>> for FFiResultWrap<T> {
     fn into(self) -> *mut CResult<T, *mut c_char> {
@@ -48,7 +46,7 @@ impl<T> Into<*mut CResult<T, *mut c_char>> for FFiResultWrap<T> {
                         t: PhantomData,
                         e: PhantomData,
                     }
-                },
+                }
                 Err(e) => {
                     let v = String::into_ffi(e.content).unwrap();
                     let obj_size = mem::size_of_val(&v);

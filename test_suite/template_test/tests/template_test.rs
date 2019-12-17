@@ -4,10 +4,11 @@ use std::path::Path;
 #[test]
 fn get_res_test() -> TResult<()> {
     let resource = get_package_dir()?;
-    resource.generate_python_api(Path::new("api.py"), None).unwrap();
+    resource
+        .generate_python_api(Path::new("api.py"), None)
+        .unwrap();
     Ok(())
 }
-
 
 #[test]
 fn render_test() -> TResult<()> {

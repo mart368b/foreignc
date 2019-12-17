@@ -1,5 +1,5 @@
 use crate::*;
-use derive_lib::{JsonStruct, BoxedStruct};
+use derive_lib::{BoxedStruct, JsonStruct};
 use foreignc::CResult;
 
 #[link(name = "derive_lib.dll")]

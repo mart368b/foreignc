@@ -1,5 +1,4 @@
 use foreignc_template::*;
-use std::path::Path;
 
 fn initialize() -> RustContext {
     RustContext {
@@ -10,14 +9,14 @@ fn initialize() -> RustContext {
                 inputs: vec![
                     RustArgument {
                         name: "a".to_owned(),
-                        ty: RustTypes::Option(Box::new(RustTypes::String))
+                        ty: RustTypes::Option(Box::new(RustTypes::String)),
                     },
                     RustArgument {
                         name: "b".to_owned(),
-                        ty: RustTypes::Primitive("bool".to_owned())
-                    }
+                        ty: RustTypes::Primitive("bool".to_owned()),
+                    },
                 ],
-                output: Some(RustTypes::Primitive("u32".to_owned()))
+                output: Some(RustTypes::Primitive("u32".to_owned())),
             },
             RustFunction {
                 name: "BSomeFunc".to_owned(),
@@ -25,15 +24,15 @@ fn initialize() -> RustContext {
                 inputs: vec![
                     RustArgument {
                         name: "a".to_owned(),
-                        ty: RustTypes::String
+                        ty: RustTypes::String,
                     },
                     RustArgument {
                         name: "b".to_owned(),
-                        ty: RustTypes::Primitive("bool".to_owned())
-                    }
+                        ty: RustTypes::Primitive("bool".to_owned()),
+                    },
                 ],
-                output: Some(RustTypes::Primitive("u32".to_owned()))
-            }
+                output: Some(RustTypes::Primitive("u32".to_owned())),
+            },
         ],
         free_funcs: Vec::new(),
         structs: Vec::new(),

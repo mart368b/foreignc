@@ -4,26 +4,26 @@ use serde::{Deserialize, Serialize};
 generate_free_methods!();
 
 #[derive(Boxed, Serialize, Deserialize, Debug)]
-pub struct BoxedStruct{
+pub struct BoxedStruct {
     name: String,
-    value: String
+    value: String,
 }
 
 #[derive(Json, Serialize, Deserialize, Debug)]
-pub struct JsonStruct{
+pub struct JsonStruct {
     name: String,
-    value: String
+    value: String,
 }
 
 #[derive(Debug)]
-pub struct UnknownStruct{}
+pub struct UnknownStruct {}
 
 #[with_abi]
 impl JsonStruct {
     pub fn new() -> JsonStruct {
         JsonStruct {
             name: "Hello".to_owned(),
-            value: "World!".to_owned()
+            value: "World!".to_owned(),
         }
     }
 
@@ -37,7 +37,7 @@ impl BoxedStruct {
     pub fn new() -> BoxedStruct {
         BoxedStruct {
             name: "Boxed".to_owned(),
-            value: "World!".to_owned()
+            value: "World!".to_owned(),
         }
     }
 
@@ -48,7 +48,7 @@ impl BoxedStruct {
 
 #[with_abi]
 pub fn get_unknown() -> *mut UnknownStruct {
-   Box::into_raw(Box::new(UnknownStruct{}))
+    Box::into_raw(Box::new(UnknownStruct {}))
 }
 
 #[with_abi]

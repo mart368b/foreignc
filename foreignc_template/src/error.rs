@@ -1,5 +1,5 @@
-use std::*;
 use foreignc_util::impl_from;
+use std::*;
 
 #[derive(Debug)]
 pub enum TemplateError {
@@ -24,7 +24,7 @@ impl fmt::Display for TemplateError {
             TemplateError::VarErr(e) => e.fmt(f),
             TemplateError::SerdeErr(e) => e.fmt(f),
             TemplateError::TeraErr(e) => e.fmt(f),
-            TemplateError::MessageErr(msg) => msg.fmt(f)
+            TemplateError::MessageErr(msg) => msg.fmt(f),
         }
     }
 }

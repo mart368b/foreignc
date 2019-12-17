@@ -1,24 +1,21 @@
 use super::*;
 
 use super::error::*;
-use foreignc_util::to_snake_case;
+use core::borrow::Borrow;
 use core::convert::From;
+use foreignc_util::to_snake_case;
 use quote::*;
 use std::iter::{Extend, FromIterator};
+use std::str::FromStr;
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
-use std::str::FromStr;
-use core::borrow::Borrow;
 use syn::*;
 
-pub fn to_extern_item_fn(
-    mut item: ItemFn,
-    implm: Option<(&Type, Ident)>,
-) -> DResult<ItemFn> {
+pub fn to_extern_item_fn(mut item: ItemFn, implm: Option<(&Type, Ident)>) -> DResult<ItemFn> {
     // Find the called functions name
     let item_path_str = if let Some((caller, method_name)) = implm {
         format!("{}::{}", caller.to_token_stream(), method_name)
-    }else {
+    } else {
         format!("{}", item.sig.ident)
     };
     let item_path: Path = parse_str(&item_path_str)?;
@@ -29,7 +26,9 @@ pub fn to_extern_item_fn(
         match ty {
             // Convert self type
             FnArg::Receiver(_) => {
-                return Err(syn::Error::new(Span::call_site(), "Cannot have self in item fn").into());
+                return Err(
+                    syn::Error::new(Span::call_site(), "Cannot have self in item fn").into(),
+                );
             }
             // Use arg type
             FnArg::Typed(ref mut t) => {
@@ -49,25 +48,31 @@ pub fn to_extern_item_fn(
         out.extend(convert_to_ptr(ty.as_ref())?);
         out.extend(TokenStream1::from_str(", *mut std::os::raw::c_char>"));
         *ty = Box::new(parse(out)?);
-    }else {
-        item.sig.output = ReturnType::Type(Token![->](Span::call_site()), parse_str("*mut foreignc::CResult<(), *mut std::os::raw::c_char>")?);
+    } else {
+        item.sig.output = ReturnType::Type(
+            Token![->](Span::call_site()),
+            parse_str("*mut foreignc::CResult<(), *mut std::os::raw::c_char>")?,
+        );
     }
 
     Ok(ItemFn {
         // Create the code block
-        block: Box::new(parse(quote!({
-            let v = std::panic::catch_unwind(|| -> foreignc::FFiResult<_> {
-                Ok(
-                    foreignc::IntoFFi::into_ffi(
-                        #item_path(#(
-                            foreignc::FromFFi::from_ffi(#args)?
-                        ),*)
-                    )?
-                )
+        block: Box::new(parse(
+            quote!({
+                let v = std::panic::catch_unwind(|| -> foreignc::FFiResult<_> {
+                    Ok(
+                        foreignc::IntoFFi::into_ffi(
+                            #item_path(#(
+                                foreignc::FromFFi::from_ffi(#args)?
+                            ),*)
+                        )?
+                    )
+                })
+                .unwrap_or_else(|e| Err(foreignc::FFiError{content: format!("{:?}", e)}));
+                foreignc::FFiResultWrap::from(v).into()
             })
-            .unwrap_or_else(|e| Err(foreignc::FFiError{content: format!("{:?}", e)}));
-            foreignc::FFiResultWrap::from(v).into()
-        }).into())?),
+            .into(),
+        )?),
         // Create the signature
         vis: VisPublic {
             pub_token: Token![pub](item.sig.span()),
@@ -135,7 +140,11 @@ pub fn convert_item_fn(self_ty: &Box<Type>, item_fn: ImplItemMethod) -> DResult<
                     if let Type::Path(ref p) = &*self_ty.clone() {
                         p.path.segments[0].ident.to_string()
                     } else {
-                        return Err(syn::Error::new(Span::call_site(), "Failed to get self type name").into());
+                        return Err(syn::Error::new(
+                            Span::call_site(),
+                            "Failed to get self type name",
+                        )
+                        .into());
                     }
                 )),
                 item_fn.sig.ident.span(),
@@ -146,9 +155,9 @@ pub fn convert_item_fn(self_ty: &Box<Type>, item_fn: ImplItemMethod) -> DResult<
     })
 }
 
-pub fn convert_to_ptr<T>(ref_ty: T) -> DResult<TokenStream1> 
+pub fn convert_to_ptr<T>(ref_ty: T) -> DResult<TokenStream1>
 where
-    T: Borrow<Type>
+    T: Borrow<Type>,
 {
     let ty = ref_ty.borrow();
     match ty {
@@ -160,23 +169,43 @@ where
                 "Result" => {
                     if let PathArguments::AngleBracketed(ref inner) = seg0.arguments {
                         if inner.args.len() != 2 {
-                            return Err(syn::Error::new(inner.span().clone(), "Result should not have lifetime").into());
+                            return Err(syn::Error::new(
+                                inner.span().clone(),
+                                "Result should not have lifetime",
+                            )
+                            .into());
                         }
                         let s0 = if let GenericArgument::Type(ref inner_ty) = inner.args[0] {
                             convert_to_ptr(inner_ty)?
                         } else {
-                            return Err(syn::Error::new(inner.args[0].span().clone(), "Result should not have lifetime").into());
+                            return Err(syn::Error::new(
+                                inner.args[0].span().clone(),
+                                "Result should not have lifetime",
+                            )
+                            .into());
                         };
 
                         let s1 = if let GenericArgument::Type(ref inner_ty) = inner.args[1] {
                             convert_to_ptr(inner_ty)?
                         } else {
-                            return Err(syn::Error::new(inner.args[1].span().clone(), "Result should not have lifetime").into());
+                            return Err(syn::Error::new(
+                                inner.args[1].span().clone(),
+                                "Result should not have lifetime",
+                            )
+                            .into());
                         };
-                        
-                        Ok(TokenStream1::from_str(&format!("*mut CResult<*mut {}, *mut {}>", s0.to_string(), s1.to_string()))?)
+
+                        Ok(TokenStream1::from_str(&format!(
+                            "*mut CResult<*mut {}, *mut {}>",
+                            s0.to_string(),
+                            s1.to_string()
+                        ))?)
                     } else {
-                        return Err(syn::Error::new(seg0.arguments.span().clone(), "Expected generic arguments after Result or Option").into());
+                        return Err(syn::Error::new(
+                            seg0.arguments.span().clone(),
+                            "Expected generic arguments after Result or Option",
+                        )
+                        .into());
                     }
                 }
                 "Option" => {
@@ -187,15 +216,24 @@ where
                             stream.extend(inner);
                             Ok(stream)
                         } else {
-                            return Err(syn::Error::new(inner.args[1].span().clone(), "Option should not have lifetime").into());
+                            return Err(syn::Error::new(
+                                inner.args[1].span().clone(),
+                                "Option should not have lifetime",
+                            )
+                            .into());
                         }
                     } else {
-                        return Err(syn::Error::new(seg0.arguments.span().clone(), "Expected generic arguments after Result or Option").into());
+                        return Err(syn::Error::new(
+                            seg0.arguments.span().clone(),
+                            "Expected generic arguments after Result or Option",
+                        )
+                        .into());
                     }
                 }
-                "i8" | "i16" | "i32" | "i64" | "i128" | "isize" | "u8" | "u16"
-                | "u32" | "u64" | "u128" | "usize" | "f32" | "f64" | "bool"
-                | "char" => Ok(ty.to_token_stream().into()),
+                "i8" | "i16" | "i32" | "i64" | "i128" | "isize" | "u8" | "u16" | "u32" | "u64"
+                | "u128" | "usize" | "f32" | "f64" | "bool" | "char" => {
+                    Ok(ty.to_token_stream().into())
+                }
                 "String" | "str" => Ok(TokenStream1::from_str("*mut std::os::raw::c_char")?),
                 _ => Ok(TokenStream1::from_str(&format!("*mut {}", path_name))?),
             }

@@ -22,10 +22,10 @@ pub fn to_camel_case(s: String) -> String {
     for c in s.chars() {
         if c.is_whitespace() || c == '_' {
             require_upper = true;
-        }else if require_upper {
+        } else if require_upper {
             ss.push(c.to_uppercase().next().unwrap());
             require_upper = false;
-        }else {
+        } else {
             ss.push(c);
         }
     }

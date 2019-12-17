@@ -9,7 +9,7 @@ mod impl_test {
     use foreignc::{CResult, CString};
 
     #[test]
-    pub fn return_string_test(){
+    pub fn return_string_test() {
         unsafe {
             // Call function
             let ptr = return_string_ffi();
@@ -28,7 +28,7 @@ mod impl_test {
     }
 
     #[test]
-    pub fn return_number_test(){
+    pub fn return_number_test() {
         unsafe {
             // Call function
             let ptr = return_number_ffi();
@@ -45,7 +45,7 @@ mod impl_test {
     }
 
     #[test]
-    pub fn return_some_number_test(){
+    pub fn return_some_number_test() {
         unsafe {
             // Call function
             let ptr = return_some_number_ffi();
@@ -66,13 +66,13 @@ mod impl_test {
     }
 
     #[test]
-    pub fn return_none_number_test(){
+    pub fn return_none_number_test() {
         unsafe {
             // Call function
             let ptr = return_none_number_ffi();
             let s = &*ptr;
             assert!(!s.is_err);
-            
+
             // Get option
             let opt_ptr = s.value as *mut *mut u32;
             // Get value
@@ -86,7 +86,7 @@ mod impl_test {
     }
 
     #[test]
-    pub fn return_ok_number_test(){
+    pub fn return_ok_number_test() {
         unsafe {
             // Call function
             let ptr = return_ok_number_ffi();
@@ -102,7 +102,7 @@ mod impl_test {
             let value_ptr = res.value as *mut u32;
             assert!(!value_ptr.is_null());
             assert_eq!(12345, *value_ptr);
-            
+
             // Clean up
             free_cresult(*res_ptr as *mut c_void);
             free_cresult(ptr as *mut c_void);
@@ -110,7 +110,7 @@ mod impl_test {
     }
 
     #[test]
-    pub fn return_err_str_test(){
+    pub fn return_err_str_test() {
         unsafe {
             // Call function
             let ptr = return_err_str_ffi();
@@ -126,7 +126,7 @@ mod impl_test {
             let value_ptr = res.value as *mut *mut c_char;
             assert!(!value_ptr.is_null());
             assert_cstr("Hello World!", *value_ptr);
-            
+
             // Clean up
             free_string(*value_ptr as *mut c_char);
             free_cresult(*res_ptr as *mut c_void);
@@ -135,7 +135,7 @@ mod impl_test {
     }
 
     #[test]
-    pub fn number_argument_test(){
+    pub fn number_argument_test() {
         unsafe {
             // Get result
             let ptr = number_argument_ffi(12345);
@@ -148,7 +148,7 @@ mod impl_test {
     }
 
     #[test]
-    pub fn str_argument_test(){
+    pub fn str_argument_test() {
         unsafe {
             // Create argument
             let msg = CString::new("Hello World!").unwrap();
