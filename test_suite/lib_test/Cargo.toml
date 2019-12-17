@@ -8,8 +8,8 @@ license = "MIT OR Apache-2.0"
 description = ""
 
 [dependencies]
-derive_lib = {path = "../derive_lib", version = "0.1.1"}
-foreignc = {path = "../../foreignc", version = "0.1.1"}
+derive_lib = {path = "../derive_lib"}
+foreignc = {path = "../../foreignc"}
 
 [lib]
 name = "lib_test"

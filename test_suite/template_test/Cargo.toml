@@ -8,7 +8,7 @@ license = "MIT OR Apache-2.0"
 description = ""
 
 [dependencies]
-foreignc = {path = "../../foreignc", features = ["template"], version = "0.1.1"}
+foreignc = {path = "../../foreignc", features = ["template"]}
 lazy_static = "1.4.0"
 
 serde = { version = "1.0.102", features = ["derive"] }
