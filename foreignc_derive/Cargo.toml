@@ -4,6 +4,7 @@ version = "0.1.0"
 authors = ["Martin Pinholt <mapi@itu.dk>"]
 edition = "2018"
 repository = "https://github.com/mart368b/foreignc"
+license-file = "../LICENSE"
 
 [dependencies]
 syn = {version="^1.0.7", features=["extra-traits", "full"]}
@@ -20,4 +21,6 @@ foreignc_util = {path = "../foreignc_util", version = "0.1.0"}
 template = ["serde", "serde_json", "foreignc_template"]
 
 [lib]
+name = "foreignc_derive"
+path = "src/lib.rs"
 proc-macro = true
