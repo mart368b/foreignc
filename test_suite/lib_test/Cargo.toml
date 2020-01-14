@@ -1,8 +1,16 @@
 [package]
 name = "lib_test"
-version = "0.1.0"
-authors = ["mart368b <martinpinholt@hotmail.com>"]
+version = "0.1.1"
+authors = ["Martin Pinholt <mapi@itu.dk>"]
 edition = "2018"
+repository = "https://github.com/mart368b/foreignc"
+license = "MIT OR Apache-2.0"
+description = ""
 
 [dependencies]
 derive_lib = {path = "../derive_lib"}
+foreignc = {path = "../../foreignc"}
+
+[lib]
+name = "lib_test"
+path = "src/lib.rs"

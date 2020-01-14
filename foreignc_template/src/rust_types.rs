@@ -8,25 +8,25 @@ pub enum MetaType {
 }
 
 impl From<RustFunction> for MetaType {
-    fn from (s: RustFunction) -> MetaType {
+    fn from(s: RustFunction) -> MetaType {
         MetaType::Func(s)
     }
 }
 
 impl From<RustStructure> for MetaType {
-    fn from (s: RustStructure) -> MetaType {
+    fn from(s: RustStructure) -> MetaType {
         MetaType::Struct(s)
     }
 }
 
 impl From<RustFreeFunction> for MetaType {
-    fn from (s: RustFreeFunction) -> MetaType {
+    fn from(s: RustFreeFunction) -> MetaType {
         MetaType::FreeFunc(s)
     }
 }
 
 #[derive(Default, Deserialize, Serialize, Debug, Clone)]
-pub struct RustFreeFunction<> {
+pub struct RustFreeFunction {
     pub ty: RustTypes,
     pub func: RustFunction,
 }
@@ -35,7 +35,7 @@ pub struct RustFreeFunction<> {
 pub enum StructTypes {
     Boxed,
     Json,
-    RawPointer
+    RawPointer,
 }
 
 impl Default for StructTypes {
@@ -49,7 +49,7 @@ pub struct RustStructure {
     pub self_ty: String,
     pub methods: Vec<RustFunction>,
     pub destructor: Option<String>,
-    pub ty: StructTypes
+    pub ty: StructTypes,
 }
 
 #[derive(Default, Deserialize, Serialize, Debug, Clone)]
@@ -84,10 +84,10 @@ pub enum RustTypes {
 impl RustTypes {
     pub fn is_string(&self) -> bool {
         match self {
-            RustTypes::Ptr(s) => false,
+            RustTypes::Ptr(_) => false,
             RustTypes::Option(s) => s.is_string(),
             RustTypes::Result(ok, err) => ok.is_string() || err.is_string(),
-            RustTypes::Primitive(s) => false,
+            RustTypes::Primitive(_) => false,
             RustTypes::String => true,
         }
     }
@@ -110,7 +110,9 @@ impl ToString for RustTypes {
         match self {
             RustTypes::Ptr(s) => format!("*mut {}", s),
             RustTypes::Option(s) => format!("Option<{}>", s.to_string()),
-            RustTypes::Result(ok, err) => format!("Result<{}, {}>", ok.to_string(), err.to_string()),
+            RustTypes::Result(ok, err) => {
+                format!("Result<{}, {}>", ok.to_string(), err.to_string())
+            }
             RustTypes::Primitive(s) => s.clone(),
             RustTypes::String => "String".to_owned(),
         }

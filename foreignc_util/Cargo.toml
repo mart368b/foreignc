@@ -1,9 +1,12 @@
 [package]
 name = "foreignc_util"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Martin Pinholt <mapi@itu.dk>"]
 edition = "2018"
+repository = "https://github.com/mart368b/foreignc"
+license = "MIT OR Apache-2.0"
+description = "Provides utilities for error handling in foreignc"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
-[dependencies]
+[lib]
+name = "foreignc_util"
+path = "src/lib.rs"

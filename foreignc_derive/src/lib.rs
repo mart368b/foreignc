@@ -1,18 +1,24 @@
+/// # foreignc_derive
+/// Provide the following macros
+///  - #[derive(Box)] - mark a struct as using a box accross the ffi barrier
+///  - #[derive(Json)] - mark a struct as using a json accross the ffi barrier
+///  - #[with_abi] - auto generate the abi of all methods in a impl block or a single function
+///  - generate_free_methods - create functions free_string, free_coption, free_cresult
 extern crate proc_macro;
 
 #[macro_use]
 mod error;
 mod generate;
 
-use generate::*;
 use foreignc_util::{throw_err, to_snake_case};
+use generate::*;
 
 use proc_macro::TokenStream as TokenStream1;
-use proc_macro2::TokenStream as TokenStream2;
 #[allow(unused_imports)]
 use proc_macro2::Span;
-use syn::parse::{Parse, ParseStream};
+use proc_macro2::TokenStream as TokenStream2;
 use quote::*;
+use syn::parse::{Parse, ParseStream};
 use syn::*;
 
 use core::convert::From;
@@ -23,8 +29,8 @@ mod template;
 #[cfg(feature = "template")]
 mod _template {
     pub use crate::template::*;
-    pub use ffi_template::derived_input::*;
-    pub use ffi_template::*;
+    pub use foreignc_template::derived_input::*;
+    pub use foreignc_template::*;
 }
 #[cfg(feature = "template")]
 use _template::*;
@@ -95,19 +101,23 @@ fn convert_impls(impls: ItemImpl) -> TokenStream1 {
                 let f = to_rust_func(&item, Some((&*impls.self_ty, &method_name)));
                 implement.methods.push(throw_err!(f));
             }
-            
-            let extern_item_fn = throw_err!(to_extern_item_fn(item, Some((&*impls.self_ty, method_name))));
-            implementation.extend::<TokenStream1>("#[no_mangle]".parse::<TokenStream1>().expect("Failed to parse no_mangle"));
+
+            let extern_item_fn = throw_err!(to_extern_item_fn(
+                item,
+                Some((&*impls.self_ty, method_name))
+            ));
+            implementation.extend::<TokenStream1>(
+                "#[no_mangle]"
+                    .parse::<TokenStream1>()
+                    .expect("Failed to parse no_mangle"),
+            );
             implementation.extend::<TokenStream1>(extern_item_fn.into_token_stream().into());
         }
     }
 
     #[cfg(feature = "template")]
     {
-        throw_err!(
-            add_to_path(implement)
-                .map_err(|e| syn::Error::new(span, &e))
-        );
+        throw_err!(add_to_path(implement).map_err(|e| syn::Error::new(span, &e)));
     }
 
     implementation.into()
@@ -120,27 +130,35 @@ fn convert_item(item: ItemFn) -> TokenStream1 {
     #[cfg(feature = "template")]
     {
         let func = throw_err!(to_rust_func(&item, None));
-        throw_err!(
-                add_to_path(func)
-                .map_err(|e| syn::Error::new(_span, &e))
-        );
+        throw_err!(add_to_path(func).map_err(|e| syn::Error::new(_span, &e)));
     }
 
     implementation.extend::<TokenStream1>(item.to_token_stream().into());
     let mut extern_item_fn = throw_err!(to_extern_item_fn(item, None));
-    extern_item_fn.sig.ident = Ident::new(&format!("{}_ffi", extern_item_fn.sig.ident), extern_item_fn.sig.ident.span().clone());
+    extern_item_fn.sig.ident = Ident::new(
+        &format!("{}_ffi", extern_item_fn.sig.ident),
+        extern_item_fn.sig.ident.span().clone(),
+    );
     let extern_stream: TokenStream2 = extern_item_fn.into_token_stream();
-    implementation.extend::<TokenStream1>("#[no_mangle]".parse::<TokenStream1>().expect("Failed to parse no_mangle"));
+    implementation.extend::<TokenStream1>(
+        "#[no_mangle]"
+            .parse::<TokenStream1>()
+            .expect("Failed to parse no_mangle"),
+    );
     implementation.extend::<TokenStream1>(extern_stream.into());
 
     implementation
 }
 
 #[proc_macro]
-pub fn generate_free_string(_item: TokenStream1) -> TokenStream1 {
+pub fn generate_free_methods(_item: TokenStream1) -> TokenStream1 {
     let mut output = TokenStream1::new();
 
-    output.extend::<TokenStream1>("#[no_mangle]".parse::<TokenStream1>().expect("Failed to parse no_mangle"));
+    output.extend::<TokenStream1>(
+        "#[no_mangle]"
+            .parse::<TokenStream1>()
+            .expect("Failed to parse no_mangle"),
+    );
     output.extend::<TokenStream1>(
         quote!(
             pub extern "C" fn free_coption(ptr: *mut foreignc::c_void) {
@@ -152,10 +170,16 @@ pub fn generate_free_string(_item: TokenStream1) -> TokenStream1 {
         .into(),
     );
 
-    output.extend::<TokenStream1>("#[no_mangle]".parse::<TokenStream1>().expect("Failed to parse no_mangle"));
+    output.extend::<TokenStream1>(
+        "#[no_mangle]"
+            .parse::<TokenStream1>()
+            .expect("Failed to parse no_mangle"),
+    );
     output.extend::<TokenStream1>(
         quote!(
-            pub extern "C" fn free_cresult(ptr: *mut foreignc::CResult<foreignc::c_void, foreignc::c_void>) {
+            pub extern "C" fn free_cresult(
+                ptr: *mut foreignc::CResult<foreignc::c_void, foreignc::c_void>,
+            ) {
                 unsafe {
                     let res = &*ptr;
                     foreignc::free_libc(res.value);
@@ -166,7 +190,11 @@ pub fn generate_free_string(_item: TokenStream1) -> TokenStream1 {
         .into(),
     );
 
-    output.extend::<TokenStream1>("#[no_mangle]".parse::<TokenStream1>().expect("Failed to parse no_mangle"));
+    output.extend::<TokenStream1>(
+        "#[no_mangle]"
+            .parse::<TokenStream1>()
+            .expect("Failed to parse no_mangle"),
+    );
     output.extend::<TokenStream1>(
         quote!(
             pub extern "C" fn free_string(ptr: *mut std::os::raw::c_char) {
@@ -178,7 +206,7 @@ pub fn generate_free_string(_item: TokenStream1) -> TokenStream1 {
 
     #[cfg(feature = "template")]
     {
-        let free = RustFreeFunction {
+        let free_string = RustFreeFunction {
             ty: RustTypes::String,
             func: RustFunction {
                 name: "free_string".to_owned(),
@@ -191,10 +219,7 @@ pub fn generate_free_string(_item: TokenStream1) -> TokenStream1 {
             },
         };
 
-        throw_err!(
-            add_to_path(free)
-                .map_err(|e| syn::Error::new(Span::call_site(), &e))
-        );
+        throw_err!(add_to_path(free_string).map_err(|e| syn::Error::new(Span::call_site(), &e)));
     }
 
     output
@@ -263,29 +288,26 @@ pub fn derive_boxed(input: TokenStream1) -> TokenStream1 {
             },
         };
 
-        throw_err!(
-            add_to_path(free)
-                .map_err(|e| syn::Error::new(_span, &e))
-        );
+        throw_err!(add_to_path(free).map_err(|e| syn::Error::new(_span, &e)));
 
-        let s = RustStructure{
+        let s = RustStructure {
             self_ty: name.to_string(),
             methods: Vec::new(),
             destructor: Some(tt_name.to_string()),
-            ty: StructTypes::Boxed
+            ty: StructTypes::Boxed,
         };
-        throw_err!(
-            add_to_path(s)
-                .map_err(|e| syn::Error::new(_span, &e))
-        );
+        throw_err!(add_to_path(s).map_err(|e| syn::Error::new(_span, &e)));
     }
 
-    t.extend::<TokenStream1>("#[no_mangle]".parse::<TokenStream1>().expect("Failed to parse no_mangle"));
+    t.extend::<TokenStream1>(
+        "#[no_mangle]"
+            .parse::<TokenStream1>()
+            .expect("Failed to parse no_mangle"),
+    );
     t.extend(tt);
 
     t
 }
-
 
 #[proc_macro_derive(Json)]
 pub fn derive_json(input: TokenStream1) -> TokenStream1 {
@@ -299,26 +321,20 @@ pub fn derive_json(input: TokenStream1) -> TokenStream1 {
 
     #[cfg(feature = "template")]
     {
-        let s = RustStructure{
+        let s = RustStructure {
             self_ty: name.to_string(),
             methods: Vec::new(),
             destructor: Some("free_string".to_owned()),
-            ty: StructTypes::Json
+            ty: StructTypes::Json,
         };
-        throw_err!(
-            add_to_path(s)
-                .map_err(|e| syn::Error::new(_span, &e))
-        );
+        throw_err!(add_to_path(s).map_err(|e| syn::Error::new(_span, &e)));
     }
-    
+
     quote!(
         unsafe impl foreignc::FromFFi<*mut #name> for #name{
             fn from_ffi(p: *mut #name) -> foreignc::FFiResult<Self> {
-                println!("from c_char");
                 let s = foreignc::FromFFi::from_ffi(p as *mut std::os::raw::c_char);
-                println!("--{:?}--", s);
                 let json = serde_json::from_str(s?);
-                println!("--{:?}--", json);
                 Ok(json?)
             }
         }

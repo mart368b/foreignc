@@ -1,20 +1,27 @@
 [package]
 name = "foreignc_derive"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Martin Pinholt <mapi@itu.dk>"]
 edition = "2018"
+repository = "https://github.com/mart368b/foreignc"
+license = "MIT OR Apache-2.0"
+description = "Creates methods for deriving ffi abis. Made as a part of the foreignc crate"
 
 [dependencies]
 syn = {version="^1.0.7", features=["extra-traits", "full"]}
 quote = "^1.0.2"
 proc-macro2 = "1.0.6"
-ffi_template = {path = "../ffi-template", optional = true}
-foreignc_util = {path = "../foreignc_util"}
+
 serde = { version = "1.0.102", optional=true, features = ["derive"] }
 serde_json = {version = "1.0.41", optional=true}
 
+foreignc_template = {path = "../foreignc_template", optional = true, version = "0.1.1"}
+foreignc_util = {path = "../foreignc_util", version = "0.1.1"}
+
 [features]
-template = ["serde", "serde_json", "ffi_template"]
+template = ["serde", "serde_json", "foreignc_template"]
 
 [lib]
+name = "foreignc_derive"
+path = "src/lib.rs"
 proc-macro = true

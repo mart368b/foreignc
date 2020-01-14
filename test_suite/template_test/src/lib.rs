@@ -1,36 +1,29 @@
 pub use foreignc::*;
-use std::panic;
 use serde::{Deserialize, Serialize};
 
-generate_free_string!();
+generate_free_methods!();
 
 #[derive(Boxed, Serialize, Deserialize, Debug)]
-pub struct BoxedStruct{
+pub struct BoxedStruct {
     name: String,
-    value: String
-}
-
-impl Drop for BoxedStruct {
-    fn drop(&mut self) {
-        println!("Dropping: {:?}", self);
-    }
+    value: String,
 }
 
 #[derive(Json, Serialize, Deserialize, Debug)]
-pub struct JsonStruct{
+pub struct JsonStruct {
     name: String,
-    value: String
+    value: String,
 }
 
 #[derive(Debug)]
-pub struct UnknownStruct{}
+pub struct UnknownStruct {}
 
 #[with_abi]
 impl JsonStruct {
     pub fn new() -> JsonStruct {
         JsonStruct {
             name: "Hello".to_owned(),
-            value: "World!".to_owned()
+            value: "World!".to_owned(),
         }
     }
 
@@ -44,7 +37,7 @@ impl BoxedStruct {
     pub fn new() -> BoxedStruct {
         BoxedStruct {
             name: "Boxed".to_owned(),
-            value: "World!".to_owned()
+            value: "World!".to_owned(),
         }
     }
 
@@ -54,58 +47,53 @@ impl BoxedStruct {
 }
 
 #[with_abi]
-pub fn does_panic() -> &'static str {
-    ""
+pub fn get_unknown() -> *mut UnknownStruct {
+    Box::into_raw(Box::new(UnknownStruct {}))
 }
 
 #[with_abi]
 pub fn get_string() -> &'static str {
-    "Hello World!"
+    "ABCDEFGHIJKLM"
 }
 
 #[with_abi]
-pub fn parse_string(s: String) {
-    println!("a + {}", s);
+pub fn get_some() -> Option<u64> {
+    Some(12345)
 }
 
 #[with_abi]
-pub fn get_number() -> u64 {
-    65151
-}
-
-#[with_abi]
-pub fn get_none() -> Option<u32> {
+pub fn get_none() -> Option<u64> {
     None
 }
 
 #[with_abi]
-pub fn get_some() -> Option<String> {
-   Some("Some(123456)".to_owned())
+pub fn set_option(v: Option<u32>) {
+    println!("Recieved optional number: {:?}", v)
 }
 
 #[with_abi]
-pub fn get_some_string() -> Option<String> {
-   Some("Some(123456)".to_owned())
+pub fn get_ok() -> Result<&'static str, &'static str> {
+    Ok("This is ok")
 }
 
 #[with_abi]
-pub fn get_some_number() -> Option<u16> {
-   Some(123)
+pub fn get_err() -> Result<&'static str, &'static str> {
+    Err("This is bad")
 }
 
 #[with_abi]
-pub fn get_unknown() -> *mut UnknownStruct {
-   Box::into_raw(Box::new(UnknownStruct{}))
+pub fn get_nested() -> Option<Option<Option<&'static str>>> {
+    Some(Some(Some("Hello World!")))
 }
 
 #[with_abi]
-pub fn set_some(v: Option<Option<String>>) {
-    println!("---{:?}", v);
+pub fn set_nested(v: Option<Option<u32>>) {
+    println!("Recieved nested optional number: {:?}", v);
 }
 
 #[with_abi]
-pub fn get_nested() -> Option<Option<Result<Option<String>, String>>> {
-    Some(Some(Ok(Some("Hello World!".to_owned()))))
+pub fn get_nested_combined() -> Option<Option<Result<Option<&'static str>, &'static str>>> {
+    Some(Some(Ok(Some("Hello World!"))))
 }
 
 

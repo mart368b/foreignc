@@ -1,8 +1,11 @@
 [package]
 name = "template_test"
-version = "0.1.0"
-authors = ["mart368b <martinpinholt@hotmail.com>"]
+version = "0.1.1"
+authors = ["Martin Pinholt <mapi@itu.dk>"]
 edition = "2018"
+repository = "https://github.com/mart368b/foreignc"
+license = "MIT OR Apache-2.0"
+description = ""
 
 [dependencies]
 foreignc = {path = "../../foreignc", features = ["template"]}
@@ -12,4 +15,6 @@ serde = { version = "1.0.102", features = ["derive"] }
 serde_json = "1.0.41"
 
 [lib]
+name = "template_test"
+path = "src/lib.rs"
 crate_type = ["staticlib", "cdylib", "rlib"]

@@ -1,32 +1,33 @@
 use crate::*;
+use std::collections::hash_map::DefaultHasher;
 #[allow(unused_imports)]
 use std::fs::{create_dir, read_dir, read_to_string, remove_file, File, OpenOptions};
+use std::hash::{Hash, Hasher};
 #[allow(unused_imports)]
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::Once;
-use std::collections::hash_map::DefaultHasher;
-use std::hash::{Hash, Hasher};
 
 static INIT: Once = Once::new();
 
-fn clean_up<P: AsRef<Path>>(p: P){
+fn clean_up<P: AsRef<Path>>(p: P) {
     INIT.call_once(|| {
         let path = p.as_ref();
         match read_dir(path) {
             Ok(dir) => {
                 for f in dir {
                     match f {
-                        Ok(f) => if let Err(e) = remove_file(f.path()) {
-                            println!("Failed to remove file {:?} because {:?}", f.path(), e);
-                        },
-                        Err(e) => println!("Failed to read file because {:?}", e)
+                        Ok(f) => {
+                            if let Err(e) = remove_file(f.path()) {
+                                println!("Failed to remove file {:?} because {:?}", f.path(), e);
+                            }
+                        }
+                        Err(e) => println!("Failed to read file because {:?}", e),
                     }
                 }
-            },
-            Err(e) => println!("Failed to clear {:?} because {:?}", path, e)
+            }
+            Err(e) => println!("Failed to clear {:?} because {:?}", path, e),
         }
-        
     });
 }
 
@@ -43,7 +44,6 @@ pub fn get_dir_path(name: String) -> TResult<PathBuf> {
     Ok(dir)
 }
 
-
 pub fn get_file_path(name: String, body: &str) -> TResult<PathBuf> {
     let mut s = DefaultHasher::new();
     name.hash(&mut s);
@@ -57,16 +57,13 @@ pub fn get_file_path(name: String, body: &str) -> TResult<PathBuf> {
 }
 
 fn open_file<P: AsRef<Path>>(p: P) -> TResult<File> {
-    Ok(OpenOptions::new()
-        .create(true)
-        .write(true)
-        .open(p)?)
+    Ok(OpenOptions::new().create(true).write(true).open(p)?)
 }
 
-pub fn add_to_path<T>(s: T) -> TResult<()> 
+pub fn add_to_path<T>(s: T) -> TResult<()>
 where
-    T: Into<MetaType>
-{   
+    T: Into<MetaType>,
+{
     let meta: MetaType = s.into();
     let filename = match meta {
         MetaType::FreeFunc(ref ff) => ff.func.extern_name.to_owned(),
@@ -76,7 +73,7 @@ where
     let body = serde_json::to_string(&meta)?;
     let path = get_file_path(filename, &body)?;
     if !path.exists() {
-        let mut w = open_file(path)?;
+        let mut w = open_file(path).unwrap();
         let bbody = body.as_bytes();
         w.write_all(bbody)?;
     }
@@ -84,7 +81,6 @@ where
 }
 
 impl RustContext {
-
     pub fn from_path_directory(dir: &str) -> TResult<Self> {
         let mut pf = Self::new();
         let pp = Path::new(&dir);
@@ -117,8 +113,8 @@ impl RustContext {
                 if self.structs[i].ty == StructTypes::RawPointer {
                     self.structs[i].ty = s.ty;
                 }
-            },
-            Err(i) => self.structs.insert(i, s)
+            }
+            Err(i) => self.structs.insert(i, s),
         }
     }
 
