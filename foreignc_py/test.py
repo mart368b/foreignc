@@ -16,7 +16,8 @@ if __name__ == '__main__':
         i += 1
     '''
     print('getting strings')
-    #s = BoxedStruct.new(lib)
+    s = BoxedStruct.new(lib)
+
     s = lib.get_some_number()
     #del s
     print('done')

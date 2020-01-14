@@ -107,3 +107,10 @@ pub fn set_some(v: Option<Option<String>>) {
 pub fn get_nested() -> Option<Option<Result<Option<String>, String>>> {
     Some(Some(Ok(Some("Hello World!".to_owned()))))
 }
+
+
+
+#[with_abi]
+pub fn hello_world() {
+    println!("Hello World!");
+}

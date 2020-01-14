@@ -162,7 +162,7 @@ where
             };
             
             let obj_size = mem::size_of_val(&v);
-            let ptr = libc::malloc(obj_size) as *mut CResult<U, V>;
+            let ptr = libc::malloc(obj_size) as *mut CResult<*mut U, *mut V>;
             *ptr = v;
 
             Ok(ptr)
